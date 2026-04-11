@@ -39,7 +39,7 @@ jobs:
           GOOGLE_OAUTH_TOKEN: ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
         run: |
-          CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
+          CONFIG="${{ github.event.inputs.config_path || 'config/categories.yml' }}"
           python src/collector.py "$CONFIG"
 
       - name: JSON 파일 커밋 & 푸시
