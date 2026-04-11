@@ -8,7 +8,7 @@ on:
       config_path:
         description: "설정 파일 경로"
         required: false
-        default: "config/categories.yaml"
+        default: "config/categories.yml"
 
 jobs:
   collect:
