@@ -5,5 +5,6 @@ lxml==5.2.2
 gspread==6.1.2
 google-auth==2.29.0
 google-generativeai==0.7.2
+google-api-python-client==2.126.0
 pyyaml==6.0.1
 pytz==2024.1

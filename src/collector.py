@@ -34,21 +34,54 @@ def get_sheets_client():
     return gspread.authorize(creds)
 
 # ── 월별 스프레드시트 가져오기 / 생성 ──────────────────────
-def get_or_create_spreadsheet(client, now: datetime, spreadsheet_id: str | None) -> gspread.Spreadsheet:
-    title = now.strftime("%Y년 %m월 뉴스 리포트")
+def get_or_create_spreadsheet(client, now: datetime, spreadsheet_id: str | None, folder_id: str | None) -> gspread.Spreadsheet:
+    # 파일명: 202604월_trand 형식
+    title = now.strftime("%Y%m월_trand")
+
+    # 1) 설정에 ID가 있으면 바로 열기
     if spreadsheet_id:
         try:
             return client.open_by_key(spreadsheet_id)
         except Exception:
             pass
-    # 이름으로 검색
-    try:
-        return client.open(title)
-    except gspread.SpreadsheetNotFound:
-        sp = client.create(title)
-        sp.share(None, perm_type="anyone", role="reader")  # 읽기 공개(선택)
-        print(f"[신규 시트 생성] {title}")
-        return sp
+
+    # 2) 폴더 안에서 이름으로 검색
+    if folder_id:
+        try:
+            files = client.list_spreadsheet_files()
+            for f in files:
+                if f["name"] == title:
+                    return client.open_by_key(f["id"])
+        except Exception:
+            pass
+
+    # 3) 새로 생성
+    sp = client.create(title)
+    print(f"[신규 시트 생성] {title}")
+
+    # 4) Collection_Report 폴더로 이동 (folder_id가 있을 때)
+    if folder_id:
+        try:
+            import googleapiclient.discovery as discovery
+            from google.oauth2.service_account import Credentials as SACredentials
+            scopes = ["https://www.googleapis.com/auth/drive"]
+            creds = SACredentials.from_service_account_file("credentials.json", scopes=scopes)
+            drive = discovery.build("drive", "v3", credentials=creds)
+
+            # 현재 부모 확인 후 폴더 이동
+            file_meta = drive.files().get(fileId=sp.id, fields="parents").execute()
+            prev_parents = ",".join(file_meta.get("parents", []))
+            drive.files().update(
+                fileId=sp.id,
+                addParents=folder_id,
+                removeParents=prev_parents,
+                fields="id, parents"
+            ).execute()
+            print(f"[폴더 이동 완료] Collection_Report/{title}")
+        except Exception as e:
+            print(f"[폴더 이동 실패 - 루트에 생성됨] {e}")
+
+    return sp
 
 # ── 일별 워크시트 가져오기 / 생성 ──────────────────────────
 def get_or_create_worksheet(spreadsheet: gspread.Spreadsheet, date_str: str) -> gspread.Worksheet:
@@ -171,7 +204,7 @@ def run(config_path: str = "config/categories.yaml"):
 
     client      = get_sheets_client()
     spreadsheet = get_or_create_spreadsheet(
-        client, now, cfg.get("spreadsheet_id")
+        client, now, cfg.get("spreadsheet_id"), cfg.get("folder_id")
     )
     ws = get_or_create_worksheet(spreadsheet, date_label)
 

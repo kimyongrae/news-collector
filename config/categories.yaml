@@ -5,6 +5,10 @@
 # 기존 시트가 있으면 ID 입력 (없으면 매월 자동 생성)
 spreadsheet_id: ""
 
+# Collection_Report 폴더 ID (Google Drive URL에서 복사)
+# 폴더 열었을 때 URL: drive.google.com/drive/folders/【여기가 folder_id】
+folder_id: ""
+
 # 소스당 최대 수집 기사 수
 limit_per_source: 8
 
