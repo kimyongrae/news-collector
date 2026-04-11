@@ -3,11 +3,11 @@
 # ────────────────────────────────────────────────────────────
 
 # 기존 시트가 있으면 ID 입력 (없으면 매월 자동 생성)
-spreadsheet_id: ""
+spreadsheet_id: "12lq2-P6o05zGVU5CC9_wVs5PNVMJpuvxoLi-vwI5axU"
 
 # Collection_Report 폴더 ID (Google Drive URL에서 복사)
 # 폴더 열었을 때 URL: drive.google.com/drive/folders/【여기가 folder_id】
-folder_id: ""
+folder_id: "1tcWyrBmHlVMW-x6F7_X9kM9Aqlb0Nq3q"
 
 # 소스당 최대 수집 기사 수
 limit_per_source: 8
