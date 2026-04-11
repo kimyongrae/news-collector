@@ -24,6 +24,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: pip 캐시 설정
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+
       - name: 의존성 설치
         run: pip install -r requirements.txt
 
