@@ -1,0 +1,9 @@
+feedparser==6.0.11
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+gspread==6.1.2
+google-auth==2.29.0
+google-generativeai==0.7.2
+pyyaml==6.0.1
+pytz==2024.1
