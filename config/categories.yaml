@@ -1,0 +1,83 @@
+# ────────────────────────────────────────────────────────────
+# 뉴스 수집기 설정 파일
+# ────────────────────────────────────────────────────────────
+
+# 기존 시트가 있으면 ID 입력 (없으면 매월 자동 생성)
+spreadsheet_id: ""
+
+# 소스당 최대 수집 기사 수
+limit_per_source: 8
+
+# ── 카테고리 설정 ─────────────────────────────────────────
+# type: rss  → RSS 피드 URL
+# type: web  → 웹 페이지 직접 크롤링 (selectors 필요)
+#
+# 카테고리 추가/제거/수정이 자유롭습니다.
+
+categories:
+
+  - name: 경제
+    sources:
+      - type: rss
+        url: https://www.hankyung.com/feed/economy
+        label: 한국경제 경제
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000001.xml
+        label: 매일경제 경제
+      - type: rss
+        url: https://www.yna.co.kr/economy/rss.xml
+        label: 연합뉴스 경제
+
+  - name: 부동산
+    sources:
+      - type: rss
+        url: https://www.hankyung.com/feed/realestate
+        label: 한국경제 부동산
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000014.xml
+        label: 매일경제 부동산
+      # 웹 크롤링 예시 (직접 URL 수집)
+      # - type: web
+      #   url: https://land.naver.com/news/newsMain.naver
+      #   selectors:
+      #     items: "ul.lst_news li"
+      #     title: "a.tit"
+      #     link:  "a.tit"
+      #     summary: "span.txt"
+
+  - name: 주식
+    sources:
+      - type: rss
+        url: https://www.hankyung.com/feed/finance
+        label: 한국경제 금융
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000009.xml
+        label: 매일경제 증권
+      - type: rss
+        url: https://www.yna.co.kr/market/rss.xml
+        label: 연합뉴스 시장
+
+  - name: 금리
+    sources:
+      - type: rss
+        url: https://www.bok.or.kr/portal/bbs/P0000559/list.do?menuNo=200690&feed=on
+        label: 한국은행 공지
+      - type: rss
+        url: https://www.hankyung.com/feed/finance
+        label: 한국경제 금융(금리)
+      # 키워드 필터링은 collector.py의 fetch_rss_articles에서 추가 가능
+
+# ── 웹 수집 예시 (나중에 사용) ────────────────────────────
+# categories:
+#   - name: 글로벌경제
+#     sources:
+#       - type: rss
+#         url: https://feeds.bbci.co.uk/news/business/rss.xml
+#         label: BBC Business
+#       - type: web
+#         url: https://example.com/news
+#         selectors:
+#           items: "div.article-card"
+#           title: "h3"
+#           link:  "a"
+#           summary: "p.description"
