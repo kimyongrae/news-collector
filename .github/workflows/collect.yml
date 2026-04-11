@@ -2,7 +2,7 @@ name: 뉴스 자동 수집
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # 매일 KST 09:00
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       config_path:
@@ -14,8 +14,6 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: write   # JSON push용
 
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +24,13 @@ jobs:
 
       - name: pip 캐시 설정
         uses: actions/cache@v4
-        id: pip-cache
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-
 
       - name: 의존성 설치
-        if: steps.pip-cache.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: 뉴스 수집 실행
@@ -42,11 +40,3 @@ jobs:
         run: |
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           python src/collector.py "$CONFIG"
-
-      - name: JSON 파일 커밋 & 푸시
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data/
-          git diff --cached --quiet || git commit -m "📰 뉴스 수집 $(date +'%Y-%m-%d %H:%M KST')"
-          git push
