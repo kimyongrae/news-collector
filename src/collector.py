@@ -1,12 +1,15 @@
 """
-뉴스 수집기 v7
+뉴스 수집기 v8
 수정 사항:
-  1) 네이버금융 URL 조합 버그 수정 + 네이버 뉴스 URL로 변환
-  2) 네이버금융 본문 에러 감지 → 빈 본문으로 처리
-  3) 중복 제거를 카테고리 내로 제한 (금리/환율이 주식과 겹치지 않도록)
-  4) 금리/환율 전용 키워드 필터링 추가
-  5) 본문 에러 메시지 자동 감지 후 재크롤링 or 빈값 처리
-  6) 네이버금융 RSS 대안 경로 추가
+  1) 저장 구조 변경: 월단위 파일 → 연단위 파일 (RSS_뉴스_{연도})
+  2) 탭 구조 변경: 날짜별 탭 → 월별 탭 ({연도}-{월}) + INDEX 탭
+  3) 연단위 파일 없으면 자동 생성 (1월 정기 생성 + 예외 생성 모두 처리)
+  4) INDEX 탭: 월별 수집 건수·마지막 수집시간 자동 갱신
+  5) 네이버금융 URL 조합 버그 수정 + 네이버 뉴스 URL로 변환
+  6) 네이버금융 본문 에러 감지 → 빈 본문으로 처리
+  7) 중복 제거를 카테고리 내로 제한 (금리/환율이 주식과 겹치지 않도록)
+  8) 금리/환율 전용 키워드 필터링 추가
+  9) 본문 에러 메시지 자동 감지 후 재크롤링 or 빈값 처리
 """
 
 import feedparser
@@ -28,7 +31,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-HEADERS    = ["카테고리","제목","본문","주요키워드","언론사","출처","감성","중요도","발행시간","수집시간"]
+HEADERS    = ["카테고리","제목","요약","주요키워드","언론사","출처","감성","중요도","발행시간","수집시간"]
 COL_WIDTHS = [90, 260, 340, 200, 90, 80, 55, 55, 120, 120]
 HDR_LAST   = chr(ord('A') + len(HEADERS) - 1)
 HDR_RANGE  = f"A1:{HDR_LAST}1"
@@ -75,6 +78,10 @@ def get_clients():
 
 
 # ── Drive / Sheets 헬퍼 ─────────────────────────────────────
+
+# INDEX 시트 헤더
+INDEX_HEADERS = ["월", "수집 건수", "마지막 수집 시간", "시트 링크"]
+
 def find_file_in_folder(drive, folder_id, title):
     q   = (f"name='{title}' and '{folder_id}' in parents "
            f"and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false")
@@ -83,45 +90,101 @@ def find_file_in_folder(drive, folder_id, title):
     return files[0]["id"] if files else None
 
 def create_spreadsheet_in_folder(gc, drive, folder_id, title):
+    """연단위 파일 신규 생성 후 INDEX 탭 초기화"""
     meta    = {"name": title,
                "mimeType": "application/vnd.google-apps.spreadsheet",
                "parents": [folder_id]}
     created = drive.files().create(body=meta, fields="id").execute()
     fid     = created["id"]
-    print(f"[신규 파일 생성] {title} (id: {fid})")
+    print(f"[신규 연단위 파일 생성] {title} (id: {fid})")
     sp = gc.open_by_key(fid)
-    sp._default_sheet_id = sp.sheet1.id
+    # 기본 Sheet1을 INDEX로 재활용
+    ws_index = sp.sheet1
+    ws_index.update_title("INDEX")
+    _init_index_sheet(sp, ws_index)
     return sp
 
-def get_or_create_spreadsheet(gc, drive, now, folder_id, spreadsheet_id):
-    title = now.strftime("%Y%m월_trand")
+def _init_index_sheet(sp, ws_index):
+    """INDEX 시트 헤더·서식 초기화"""
+    ws_index.clear()
+    ws_index.append_row(INDEX_HEADERS, value_input_option="RAW")
+    ws_index.format("A1:D1", {
+        "backgroundColor": {"red": 0.15, "green": 0.15, "blue": 0.45},
+        "textFormat": {"bold": True,
+                       "foregroundColor": {"red": 1, "green": 1, "blue": 1},
+                       "fontSize": 10},
+        "horizontalAlignment": "CENTER",
+    })
+    ws_index.freeze(rows=1)
+    # 열 너비 조정
+    reqs = []
+    for i, w in enumerate([90, 90, 160, 300]):
+        reqs.append({"updateDimensionProperties": {
+            "range": {"sheetId": ws_index.id, "dimension": "COLUMNS",
+                      "startIndex": i, "endIndex": i + 1},
+            "properties": {"pixelSize": w}, "fields": "pixelSize",
+        }})
+    sp.batch_update({"requests": reqs})
+    print("[INDEX 탭 초기화 완료]")
+
+def get_or_create_annual_spreadsheet(gc, drive, now, folder_id, spreadsheet_id):
+    """
+    연단위 파일 (RSS_뉴스_{연도}) 가져오기 또는 생성.
+
+    우선순위:
+      1) categories.yaml 의 spreadsheet_id 가 있으면 그것을 사용
+      2) Drive 폴더에서 해당 연도 파일 검색
+      3) 없으면 자동 생성 (1월 정기 생성 + 연중 예외 생성 모두 처리)
+    """
+    year  = now.year
+    title = f"RSS_뉴스_{year}"
+
     if spreadsheet_id:
         try:
             sp = gc.open_by_key(spreadsheet_id)
-            sp._default_sheet_id = None
-            print(f"[기존 파일] {sp.title}")
+            print(f"[기존 파일 (spreadsheet_id)] {sp.title}")
             return sp
         except Exception as e:
-            print(f"[spreadsheet_id 실패] {e}")
+            print(f"[spreadsheet_id 실패] {e} → 폴더에서 검색합니다.")
+
     if not folder_id:
         raise ValueError("categories.yaml 에 folder_id 를 입력해주세요.")
+
     eid = find_file_in_folder(drive, folder_id, title)
     if eid:
         sp = gc.open_by_key(eid)
-        sp._default_sheet_id = None
-        print(f"[기존 파일 재사용] {title}")
+        print(f"[기존 연단위 파일 재사용] {title}")
+        # INDEX 탭이 없으면 생성 (마이그레이션 대비)
+        try:
+            sp.worksheet("INDEX")
+        except gspread.WorksheetNotFound:
+            print("[INDEX 탭 없음 → 새로 생성]")
+            ws_index = sp.add_worksheet(title="INDEX", rows=20, cols=4)
+            _init_index_sheet(sp, ws_index)
         return sp
+
+    # ── 파일이 없는 경우: 자동 생성 ─────────────────────────
+    is_january = (now.month == 1)
+    if is_january:
+        print(f"[1월 정기 생성] {title}")
+    else:
+        print(f"[예외 생성] {title} 파일이 없어 자동 생성합니다. (현재 {now.month}월)")
     return create_spreadsheet_in_folder(gc, drive, folder_id, title)
 
-def get_or_create_worksheet(sp, date_str):
+
+def get_or_create_monthly_worksheet(sp, month_label: str):
+    """
+    월별 탭 ({연도}-{월}) 가져오기 또는 생성.
+    탭 순서: INDEX가 항상 첫 번째, 월별 탭은 월 순서로 정렬.
+    """
     try:
-        ws = sp.worksheet(date_str)
-        print(f"[기존 탭] {date_str}")
+        ws = sp.worksheet(month_label)
+        print(f"[기존 월탭] {month_label}")
         return ws
     except gspread.WorksheetNotFound:
         pass
 
-    ws       = sp.add_worksheet(title=date_str, rows=1200, cols=len(HEADERS) + 1)
+    ws       = sp.add_worksheet(title=month_label, rows=3000, cols=len(HEADERS) + 1)
     sheet_id = ws.id
 
     ws.append_row(HEADERS, value_input_option="RAW")
@@ -138,7 +201,7 @@ def get_or_create_worksheet(sp, date_str):
     for i, w in enumerate(COL_WIDTHS):
         reqs.append({"updateDimensionProperties": {
             "range": {"sheetId": sheet_id, "dimension": "COLUMNS",
-                      "startIndex": i, "endIndex": i+1},
+                      "startIndex": i, "endIndex": i + 1},
             "properties": {"pixelSize": w}, "fields": "pixelSize",
         }})
     reqs.append({"setBasicFilter": {"filter": {"range": {
@@ -148,19 +211,73 @@ def get_or_create_worksheet(sp, date_str):
     }}}})
     sp.batch_update({"requests": reqs})
 
-    did = getattr(sp, "_default_sheet_id", None)
-    if did is not None and did != sheet_id:
-        try:
-            sp.batch_update({"requests": [{"deleteSheet": {"sheetId": did}}]})
-            sp._default_sheet_id = None
-            print("[Sheet1 삭제]")
-        except Exception as e:
-            print(f"[Sheet1 삭제 실패] {e}")
+    # INDEX 탭 다음 위치로 탭 순서 정렬
+    _reorder_sheet_after_index(sp, sheet_id, month_label)
 
-    print(f"[새 탭 생성] {date_str}")
+    print(f"[새 월탭 생성] {month_label}")
     return ws
 
+
+def _reorder_sheet_after_index(sp, new_sheet_id: int, month_label: str):
+    """새로 만든 월탭을 INDEX 바로 뒤, 월 순서에 맞게 정렬"""
+    try:
+        worksheets = sp.worksheets()
+        # INDEX는 항상 index=0 유지
+        # 월탭들을 이름 기준 정렬하여 적절한 위치 계산
+        month_sheets = [ws for ws in worksheets
+                        if ws.title != "INDEX" and ws.id != new_sheet_id]
+        month_sheets.sort(key=lambda ws: ws.title)
+
+        # 새 탭의 목표 위치: INDEX(0) + 정렬된 월탭 중 자신의 순서
+        all_months = sorted([ws.title for ws in month_sheets] + [month_label])
+        target_index = all_months.index(month_label) + 1  # +1 = INDEX 이후
+
+        sp.batch_update({"requests": [{
+            "updateSheetProperties": {
+                "properties": {"sheetId": new_sheet_id, "index": target_index},
+                "fields": "index",
+            }
+        }]})
+    except Exception as e:
+        print(f"[탭 순서 정렬 실패] {e}")
+
+
+def update_index_sheet(sp, month_label: str, count: int, collected_at: str):
+    """
+    INDEX 탭의 해당 월 행을 갱신 (없으면 추가).
+    컬럼: 월 | 수집 건수 | 마지막 수집 시간 | 시트 링크
+    """
+    try:
+        ws_index = sp.worksheet("INDEX")
+    except gspread.WorksheetNotFound:
+        print("[INDEX 탭 없음 → 건너뜀]")
+        return
+
+    sheet_link = f'=HYPERLINK("#gid={sp.worksheet(month_label).id}","{month_label}")'
+
+    all_vals = ws_index.get_all_values()
+    # 헤더 제외하고 월 컬럼(A열) 검색
+    for row_idx, row in enumerate(all_vals[1:], start=2):
+        if row and row[0] == month_label:
+            # 기존 행 업데이트 (수집 건수 누적)
+            existing_count = int(row[1]) if (len(row) > 1 and str(row[1]).isdigit()) else 0
+            ws_index.update(
+                f"A{row_idx}:D{row_idx}",
+                [[month_label, existing_count + count, collected_at, sheet_link]],
+                value_input_option="USER_ENTERED",
+            )
+            print(f"[INDEX 갱신] {month_label} → 누적 {existing_count + count}건")
+            return
+
+    # 없으면 새 행 추가
+    ws_index.append_row(
+        [month_label, count, collected_at, sheet_link],
+        value_input_option="USER_ENTERED",
+    )
+    print(f"[INDEX 추가] {month_label} → {count}건")
+
 def load_title_set(ws):
+    """월탭의 제목(B열=col 2) 전체를 메모리에 로드해 중복 방지용 세트 반환"""
     vals = ws.col_values(TITLE_COL)
     return set(v.strip() for v in vals[1:] if v.strip())
 
@@ -771,16 +888,20 @@ def run(config_path="config/categories.yaml"):
         cfg = yaml.safe_load(f)
 
     now            = datetime.now(KST)
-    date_label     = now.strftime("%m월 %d일")
+    month_label    = now.strftime("%Y-%m")          # 탭 이름: 2026-04
     collected_at   = now.strftime("%Y-%m-%d %H:%M")
     folder_id      = cfg.get("folder_id", "").strip()
     spreadsheet_id = cfg.get("spreadsheet_id", "").strip()
 
     gc, drive = get_clients()
-    sp        = get_or_create_spreadsheet(gc, drive, now, folder_id, spreadsheet_id)
-    ws        = get_or_create_worksheet(sp, date_label)
 
-    # ✅ 전체 중복 제거용 (시트에 이미 있는 제목)
+    # ── 연단위 파일 가져오기 (없으면 자동 생성) ──────────────
+    sp = get_or_create_annual_spreadsheet(gc, drive, now, folder_id, spreadsheet_id)
+
+    # ── 월별 탭 가져오기 (없으면 자동 생성) ──────────────────
+    ws = get_or_create_monthly_worksheet(sp, month_label)
+
+    # ── 월탭의 기존 제목 세트 로드 (중복 방지) ───────────────
     global_title_set = load_title_set(ws)
 
     total    = 0
@@ -893,8 +1014,111 @@ def run(config_path="config/categories.yaml"):
         except Exception as e:
             print(f"[서식 실패] {e}")
 
-    print(f"\n✅ 완료: {total}건 → '{sp.title}' / {date_label} 탭")
+    # ── INDEX 탭 갱신 ─────────────────────────────────────────
+    if total > 0:
+        update_index_sheet(sp, month_label, total, collected_at)
+
+    # ── JSON 파일 저장 (GitHub Pages용) ──────────────────────
+    save_json(ws, sp, month_label, collected_at, now)
+
+    print(f"\n✅ 완료: {total}건 → '{sp.title}' / {month_label} 탭")
     print(f"   URL: https://docs.google.com/spreadsheets/d/{sp.id}")
+
+
+# ── JSON 저장 ────────────────────────────────────────────────
+def save_json(ws, sp, month_label: str, collected_at: str, now: datetime):
+    """
+    수집된 데이터를 docs/data/{YYYY-MM}.json 으로 저장.
+    index.json(전체 월 목록 + 요약)도 함께 갱신.
+    """
+    import pathlib
+
+    data_dir = pathlib.Path("docs/data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── 1. 월별 JSON ─────────────────────────────────────────
+    month_file = data_dir / f"{month_label}.json"
+
+    # 시트에서 전체 데이터 읽기
+    all_rows = ws.get_all_values()
+    if len(all_rows) < 2:
+        print("[JSON] 데이터 없음 - 저장 생략")
+        return
+
+    header = all_rows[0]   # ["카테고리","제목","요약","주요키워드","언론사","출처","감성","중요도","발행시간","수집시간"]
+    articles = []
+    for row in all_rows[1:]:
+        # 빈 행 스킵
+        if not any(row):
+            continue
+        # 컬럼 수 맞추기
+        while len(row) < len(header):
+            row.append("")
+        articles.append({
+            "category":  row[0],
+            "title":     row[1],
+            "summary":   row[2],
+            "keywords":  row[3],
+            "media":     row[4],
+            "url":       row[5],
+            "sentiment": row[6],
+            "importance": row[7],
+            "published": row[8],
+            "collected": row[9],
+        })
+
+    month_data = {
+        "month":        month_label,
+        "spreadsheet":  sp.id,
+        "last_updated": collected_at,
+        "total":        len(articles),
+        "articles":     articles,
+    }
+
+    with open(month_file, "w", encoding="utf-8") as f:
+        json.dump(month_data, f, ensure_ascii=False, indent=2)
+    print(f"[JSON] {month_file} 저장 완료 ({len(articles)}건)")
+
+    # ── 2. index.json (월 목록 + 요약) ───────────────────────
+    index_file = data_dir / "index.json"
+
+    # 기존 index.json 로드
+    if index_file.exists():
+        with open(index_file, encoding="utf-8") as f:
+            index_data = json.load(f)
+    else:
+        index_data = {"months": [], "spreadsheet": sp.id, "year": now.year}
+
+    # 카테고리별 건수 계산
+    cat_counts = {}
+    for art in articles:
+        c = art["category"]
+        cat_counts[c] = cat_counts.get(c, 0) + 1
+
+    # 해당 월 항목 업데이트 or 추가
+    month_entry = {
+        "month":        month_label,
+        "total":        len(articles),
+        "last_updated": collected_at,
+        "categories":   cat_counts,
+    }
+    months = index_data.get("months", [])
+    for i, m in enumerate(months):
+        if m["month"] == month_label:
+            months[i] = month_entry
+            break
+    else:
+        months.append(month_entry)
+
+    # 월 순서 정렬
+    months.sort(key=lambda x: x["month"])
+    index_data["months"]      = months
+    index_data["spreadsheet"] = sp.id
+    index_data["year"]        = now.year
+
+    with open(index_file, "w", encoding="utf-8") as f:
+        json.dump(index_data, f, ensure_ascii=False, indent=2)
+    print(f"[JSON] index.json 갱신 완료 ({len(months)}개 월)")
 
 
 if __name__ == "__main__":
