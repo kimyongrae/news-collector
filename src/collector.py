@@ -1,6 +1,5 @@
 """
-뉴스 수집기 - 카테고리별 RSS/웹 크롤링 후 Google Sheets에 저장
-folder_id만 설정하면 매월 자동으로 파일 생성 후 폴더에 쌓임
+뉴스 수집기 - OAuth 방식 (내 구글 계정으로 드라이브에 직접 저장)
 """
 
 import feedparser
@@ -16,7 +15,7 @@ import sys
 import time
 
 import gspread
-from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build as google_build
 import google.generativeai as genai
 
@@ -27,15 +26,40 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# ── 인증 클라이언트 생성 ────────────────────────────────────
+# ── OAuth 인증 클라이언트 생성 ──────────────────────────────
 def get_clients():
-    creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+    """
+    환경변수 GOOGLE_OAUTH_TOKEN (JSON 문자열) 로 인증
+    {
+      "client_id": "87249978372-aufoddb78fahqnubtv0k46uk0asnkoha.apps.googleusercontent.com",
+      "client_secret": "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",
+      "refresh_token": "1//0ez1rPqFlWhUaCgYIARAAGA4SNwF-L9IrWhggBeh4nrBBM4PsyavPc8UiwqQkQ-LFQu3bYsQaSLJyklRtwCa-HZIm5xEw2-xQ7iM",
+      "token_uri": "https://oauth2.googleapis.com/token"
+    }
+    """
+    token_json = os.environ.get("GOOGLE_OAUTH_TOKEN", "")
+    if not token_json:
+        raise ValueError(
+            "환경변수 GOOGLE_OAUTH_TOKEN 이 없습니다.\n"
+            "get_token.py 를 실행해서 GitHub Secret에 등록해주세요."
+        )
+
+    token_data = json.loads(token_json)
+    creds = Credentials(
+        token=None,
+        refresh_token=token_data["refresh_token"],
+        client_id=token_data["client_id"],
+        client_secret=token_data["client_secret"],
+        token_uri=token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+        scopes=SCOPES,
+    )
+
     sheets_client = gspread.authorize(creds)
     drive_client  = google_build("drive", "v3", credentials=creds)
     return sheets_client, drive_client
 
 # ── 폴더 안에서 파일명으로 검색 ────────────────────────────
-def find_file_in_folder(drive, folder_id: str, title: str):
+def find_file_in_folder(drive, folder_id, title):
     query = (
         f"name='{title}' "
         f"and '{folder_id}' in parents "
@@ -46,8 +70,8 @@ def find_file_in_folder(drive, folder_id: str, title: str):
     files = result.get("files", [])
     return files[0]["id"] if files else None
 
-# ── Drive API로 폴더 안에 직접 스프레드시트 생성 ───────────
-def create_file_in_folder(drive, folder_id: str, title: str) -> str:
+# ── 폴더 안에 스프레드시트 생성 ────────────────────────────
+def create_file_in_folder(drive, folder_id, title):
     file_meta = {
         "name": title,
         "mimeType": "application/vnd.google-apps.spreadsheet",
@@ -62,7 +86,6 @@ def create_file_in_folder(drive, folder_id: str, title: str) -> str:
 def get_or_create_spreadsheet(sheets_client, drive_client, now, folder_id, spreadsheet_id):
     title = now.strftime("%Y%m월_trand")
 
-    # 1) spreadsheet_id가 있으면 바로 열기
     if spreadsheet_id:
         try:
             sp = sheets_client.open_by_key(spreadsheet_id)
@@ -71,20 +94,14 @@ def get_or_create_spreadsheet(sheets_client, drive_client, now, folder_id, sprea
         except Exception as e:
             print(f"[spreadsheet_id 열기 실패] {e}")
 
-    # 2) folder_id 필수 체크
     if not folder_id:
-        raise ValueError(
-            "categories.yaml에 folder_id를 입력해주세요.\n"
-            "Google Drive > Collection_Report 폴더 열기 > URL의 folders/ 뒤 값"
-        )
+        raise ValueError("categories.yaml 에 folder_id 를 입력해주세요.")
 
-    # 3) 폴더 안에 이번 달 파일이 이미 있으면 재사용
     existing_id = find_file_in_folder(drive_client, folder_id, title)
     if existing_id:
         print(f"[기존 파일 재사용] {title}")
         return sheets_client.open_by_key(existing_id)
 
-    # 4) 없으면 폴더 안에 새로 생성
     new_id = create_file_in_folder(drive_client, folder_id, title)
     return sheets_client.open_by_key(new_id)
 
@@ -179,7 +196,6 @@ def extract_keywords_simple(text):
             freq[w] = freq.get(w, 0) + 1
     return ", ".join(sorted(freq, key=lambda x: -freq[x])[:5])
 
-# ── 중복 체크 ───────────────────────────────────────────────
 def is_duplicate(ws, title):
     return title in ws.col_values(2)
 

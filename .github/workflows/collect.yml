@@ -2,13 +2,11 @@ name: 뉴스 자동 수집
 
 on:
   schedule:
-    # 매일 오전 9시 KST (= UTC 00:00)
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"   # 매일 KST 09:00
   workflow_dispatch:
-    # 수동 실행도 가능 (GitHub UI에서 Run workflow 버튼)
     inputs:
       config_path:
-        description: "설정 파일 경로 (기본: config/categories.yaml)"
+        description: "설정 파일 경로"
         required: false
         default: "config/categories.yaml"
 
@@ -18,11 +16,9 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: 코드 체크아웃
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Python 3.11 세팅
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -30,17 +26,10 @@ jobs:
       - name: 의존성 설치
         run: pip install -r requirements.txt
 
-      - name: Google 서비스 계정 키 파일 생성
-        run: |
-          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > credentials.json
-
       - name: 뉴스 수집 실행
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_OAUTH_TOKEN: ${{ secrets.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
         run: |
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           python src/collector.py "$CONFIG"
-
-      - name: 자격증명 파일 삭제
-        if: always()
-        run: rm -f credentials.json
