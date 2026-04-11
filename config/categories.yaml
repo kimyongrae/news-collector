@@ -1,58 +1,34 @@
 # ────────────────────────────────────────────────────────────
-# [부자 개미] 뉴스 수집기 최적화 설정
+# 뉴스 수집기 설정 파일
 # ────────────────────────────────────────────────────────────
 
-# 1. 403 에러 방지용 시트 설정
-# 직접 시트를 만들고 '서비스 계정'을 편집자로 초대한 뒤, 그 시트의 ID를 아래에 넣으세요.
-# URL의 /d/와 /edit 사이의 문자열이 ID입니다.
-spreadsheet_id: "12lq2-P6o05zGVU5CC9_wVs5PNVMJpuvxoLi-vwI5axU"
-
-# 2. 결과물 저장 폴더 (기존 유지)
+# ✅ 여기에 폴더 ID만 넣으면 됩니다!
+# Google Drive > Collection_Report 폴더 열기
+# URL: drive.google.com/drive/folders/【이 값을 복사】
 folder_id: "1tcWyrBmHlVMW-x6F7_X9kM9Aqlb0Nq3q"
 
-# 소스당 수집 기사 수 (AI 요약 비용과 정보 밀도를 고려해 5~8개 적당)
+# (선택) 특정 시트를 직접 지정하고 싶을 때만 입력 (보통 비워두세요)
+spreadsheet_id: ""
+
+# 소스당 최대 수집 기사 수
 limit_per_source: 6
 
-# ── 카테고리 설정 (채널 타겟팅 최적화) ─────────────────────────
+# ── 카테고리 설정 ─────────────────────────────────────────
 categories:
 
-  - name: "글로벌 AI/빅테크" # 사용자 관심사: Nvidia, MS, Broadcom 등 반영
+  - name: 경제
     sources:
-      - type: rss
-        url: https://www.hankyung.com/feed/international
-        label: 한국경제 국제
-      - type: rss
-        url: https://rss.mk.co.kr/rss/30000012.xml
-        label: 매일경제 세계
-
-  - name: "거시경제/환율" # 사용자 관심사: KRW/USD 환율 및 매크로
-    sources:
-      - type: rss
-        url: https://www.yna.co.kr/economy/rss.xml
-        label: 연합뉴스 경제전반
       - type: rss
         url: https://www.hankyung.com/feed/economy
         label: 한국경제 경제
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000001.xml
+        label: 매일경제 경제
+      - type: rss
+        url: https://www.yna.co.kr/economy/rss.xml
+        label: 연합뉴스 경제
 
-  - name: "국내주식/증권"
-    sources:
-      - type: rss
-        url: https://rss.mk.co.kr/rss/30000009.xml
-        label: 매일경제 증권
-      - type: rss
-        url: https://www.yna.co.kr/market/rss.xml
-        label: 연합뉴스 시장
-
-  - name: "금리/채권/ISA" # 사용자 관심사: 금리 정책 및 ISA 채권 투자
-    sources:
-      - type: rss
-        url: https://www.bok.or.kr/portal/bbs/P0000559/list.do?menuNo=200690&feed=on
-        label: 한국은행 공지
-      - type: rss
-        url: https://www.hankyung.com/feed/finance
-        label: 한국경제 금융
-
-  - name: "부동산/재테크"
+  - name: 부동산
     sources:
       - type: rss
         url: https://www.hankyung.com/feed/realestate
@@ -60,3 +36,24 @@ categories:
       - type: rss
         url: https://rss.mk.co.kr/rss/30000014.xml
         label: 매일경제 부동산
+
+  - name: 주식
+    sources:
+      - type: rss
+        url: https://www.hankyung.com/feed/finance
+        label: 한국경제 금융
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000009.xml
+        label: 매일경제 증권
+      - type: rss
+        url: https://www.yna.co.kr/market/rss.xml
+        label: 연합뉴스 시장
+
+  - name: 금리
+    sources:
+      - type: rss
+        url: https://www.bok.or.kr/portal/bbs/P0000559/list.do?menuNo=200690&feed=on
+        label: 한국은행 공지
+      - type: rss
+        url: https://www.hankyung.com/feed/finance
+        label: 한국경제 금융(금리)

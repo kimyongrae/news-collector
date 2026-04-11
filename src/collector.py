@@ -1,5 +1,6 @@
 """
 뉴스 수집기 - 카테고리별 RSS/웹 크롤링 후 Google Sheets에 저장
+folder_id만 설정하면 매월 자동으로 파일 생성 후 폴더에 쌓임
 """
 
 import feedparser
@@ -9,107 +10,109 @@ from datetime import datetime
 import pytz
 import re
 import yaml
+import json
 import os
 import sys
 import time
 
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build as google_build
 import google.generativeai as genai
 
 KST = pytz.timezone("Asia/Seoul")
 
-# ── 설정 로드 ──────────────────────────────────────────────
-def load_config(path: str = "config/categories.yaml") -> dict:
-    with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
-# ── Google Sheets 클라이언트 ────────────────────────────────
-def get_sheets_client():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
-    return gspread.authorize(creds)
+# ── 인증 클라이언트 생성 ────────────────────────────────────
+def get_clients():
+    creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+    sheets_client = gspread.authorize(creds)
+    drive_client  = google_build("drive", "v3", credentials=creds)
+    return sheets_client, drive_client
+
+# ── 폴더 안에서 파일명으로 검색 ────────────────────────────
+def find_file_in_folder(drive, folder_id: str, title: str):
+    query = (
+        f"name='{title}' "
+        f"and '{folder_id}' in parents "
+        f"and mimeType='application/vnd.google-apps.spreadsheet' "
+        f"and trashed=false"
+    )
+    result = drive.files().list(q=query, fields="files(id, name)").execute()
+    files = result.get("files", [])
+    return files[0]["id"] if files else None
+
+# ── Drive API로 폴더 안에 직접 스프레드시트 생성 ───────────
+def create_file_in_folder(drive, folder_id: str, title: str) -> str:
+    file_meta = {
+        "name": title,
+        "mimeType": "application/vnd.google-apps.spreadsheet",
+        "parents": [folder_id],
+    }
+    created = drive.files().create(body=file_meta, fields="id").execute()
+    file_id = created["id"]
+    print(f"[신규 파일 생성] {title}  (id: {file_id})")
+    return file_id
 
 # ── 월별 스프레드시트 가져오기 / 생성 ──────────────────────
-def get_or_create_spreadsheet(client, now: datetime, spreadsheet_id: str | None, folder_id: str | None) -> gspread.Spreadsheet:
-    # 파일명: 202604월_trand 형식
+def get_or_create_spreadsheet(sheets_client, drive_client, now, folder_id, spreadsheet_id):
     title = now.strftime("%Y%m월_trand")
 
-    # 1) 설정에 ID가 있으면 바로 열기
+    # 1) spreadsheet_id가 있으면 바로 열기
     if spreadsheet_id:
         try:
-            return client.open_by_key(spreadsheet_id)
-        except Exception:
-            pass
-
-    # 2) 폴더 안에서 이름으로 검색
-    if folder_id:
-        try:
-            files = client.list_spreadsheet_files()
-            for f in files:
-                if f["name"] == title:
-                    return client.open_by_key(f["id"])
-        except Exception:
-            pass
-
-    # 3) 새로 생성
-    sp = client.create(title)
-    print(f"[신규 시트 생성] {title}")
-
-    # 4) Collection_Report 폴더로 이동 (folder_id가 있을 때)
-    if folder_id:
-        try:
-            import googleapiclient.discovery as discovery
-            from google.oauth2.service_account import Credentials as SACredentials
-            scopes = ["https://www.googleapis.com/auth/drive"]
-            creds = SACredentials.from_service_account_file("credentials.json", scopes=scopes)
-            drive = discovery.build("drive", "v3", credentials=creds)
-
-            # 현재 부모 확인 후 폴더 이동
-            file_meta = drive.files().get(fileId=sp.id, fields="parents").execute()
-            prev_parents = ",".join(file_meta.get("parents", []))
-            drive.files().update(
-                fileId=sp.id,
-                addParents=folder_id,
-                removeParents=prev_parents,
-                fields="id, parents"
-            ).execute()
-            print(f"[폴더 이동 완료] Collection_Report/{title}")
+            sp = sheets_client.open_by_key(spreadsheet_id)
+            print(f"[기존 파일 사용] {sp.title}")
+            return sp
         except Exception as e:
-            print(f"[폴더 이동 실패 - 루트에 생성됨] {e}")
+            print(f"[spreadsheet_id 열기 실패] {e}")
 
-    return sp
+    # 2) folder_id 필수 체크
+    if not folder_id:
+        raise ValueError(
+            "categories.yaml에 folder_id를 입력해주세요.\n"
+            "Google Drive > Collection_Report 폴더 열기 > URL의 folders/ 뒤 값"
+        )
+
+    # 3) 폴더 안에 이번 달 파일이 이미 있으면 재사용
+    existing_id = find_file_in_folder(drive_client, folder_id, title)
+    if existing_id:
+        print(f"[기존 파일 재사용] {title}")
+        return sheets_client.open_by_key(existing_id)
+
+    # 4) 없으면 폴더 안에 새로 생성
+    new_id = create_file_in_folder(drive_client, folder_id, title)
+    return sheets_client.open_by_key(new_id)
 
 # ── 일별 워크시트 가져오기 / 생성 ──────────────────────────
-def get_or_create_worksheet(spreadsheet: gspread.Spreadsheet, date_str: str) -> gspread.Worksheet:
-    """date_str 예: '04월 11일'"""
+def get_or_create_worksheet(spreadsheet, date_str):
     try:
         ws = spreadsheet.worksheet(date_str)
+        print(f"[기존 탭 사용] {date_str}")
     except gspread.WorksheetNotFound:
         ws = spreadsheet.add_worksheet(title=date_str, rows=500, cols=10)
-        # 헤더 작성
         headers = ["카테고리", "제목", "출처", "수집시간", "주요 키워드", "요약", "원문 URL"]
         ws.append_row(headers, value_input_option="RAW")
-        # 헤더 스타일 (bold + 배경색)
         ws.format("A1:G1", {
             "backgroundColor": {"red": 0.2, "green": 0.2, "blue": 0.6},
             "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
         })
         ws.freeze(rows=1)
-        print(f"[새 시트] {date_str}")
+        print(f"[새 탭 생성] {date_str}")
     return ws
 
 # ── RSS 기사 수집 ───────────────────────────────────────────
-def fetch_rss_articles(feed_url: str, limit: int = 10) -> list[dict]:
+def fetch_rss_articles(feed_url, limit=10):
     feed = feedparser.parse(feed_url)
     articles = []
     for entry in feed.entries[:limit]:
         articles.append({
             "title": entry.get("title", "").strip(),
-            "url": entry.get("link", ""),
+            "url":   entry.get("link", ""),
             "source": feed.feed.get("title", feed_url),
             "summary_raw": BeautifulSoup(
                 entry.get("summary", entry.get("description", "")), "html.parser"
@@ -117,15 +120,8 @@ def fetch_rss_articles(feed_url: str, limit: int = 10) -> list[dict]:
         })
     return articles
 
-# ── 웹페이지 직접 수집 (URL 리스트 방식) ───────────────────
-def fetch_web_articles(url: str, selectors: dict) -> list[dict]:
-    """
-    selectors 예:
-      items: "article.news-item"
-      title: "h2.title"
-      link:  "a"          (href 속성)
-      summary: "p.desc"
-    """
+# ── 웹페이지 직접 수집 ──────────────────────────────────────
+def fetch_web_articles(url, selectors):
     headers = {"User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)"}
     try:
         resp = requests.get(url, headers=headers, timeout=10)
@@ -133,7 +129,6 @@ def fetch_web_articles(url: str, selectors: dict) -> list[dict]:
     except Exception as e:
         print(f"  [웹 수집 실패] {url} → {e}")
         return []
-
     soup = BeautifulSoup(resp.text, "html.parser")
     articles = []
     for item in soup.select(selectors.get("items", "article"))[:10]:
@@ -151,14 +146,11 @@ def fetch_web_articles(url: str, selectors: dict) -> list[dict]:
             articles.append({"title": title, "url": link, "source": url, "summary_raw": summary})
     return articles
 
-# ── Gemini 키워드 + 요약 생성 ───────────────────────────────
-def ai_process(title: str, raw_summary: str, category: str) -> tuple[str, str]:
+# ── Gemini AI 키워드 + 요약 ─────────────────────────────────
+def ai_process(title, raw_summary, category):
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        keywords = extract_keywords_simple(title + " " + raw_summary)
-        summary  = raw_summary[:150] + ("…" if len(raw_summary) > 150 else "")
-        return keywords, summary
-
+        return extract_keywords_simple(title + " " + raw_summary), raw_summary[:150]
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = f"""다음 {category} 뉴스 기사를 분석해 JSON으로만 답하세요.
@@ -172,39 +164,39 @@ def ai_process(title: str, raw_summary: str, category: str) -> tuple[str, str]:
     try:
         resp = model.generate_content(prompt)
         text = resp.text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        import json
         data = json.loads(text)
         return data.get("keywords", ""), data.get("summary", raw_summary[:150])
     except Exception as e:
         print(f"  [AI 처리 실패] {e}")
         return extract_keywords_simple(title), raw_summary[:150]
 
-def extract_keywords_simple(text: str) -> str:
-    # 간단한 규칙 기반 키워드 (AI 없을 때 fallback)
+def extract_keywords_simple(text):
     stopwords = {"의","을","를","이","가","은","는","에","와","과","도","로","으로","에서","한","하는","있는"}
     words = re.findall(r"[가-힣]{2,}", text)
-    freq: dict[str, int] = {}
+    freq = {}
     for w in words:
         if w not in stopwords:
             freq[w] = freq.get(w, 0) + 1
-    top = sorted(freq, key=lambda x: -freq[x])[:5]
-    return ", ".join(top)
+    return ", ".join(sorted(freq, key=lambda x: -freq[x])[:5])
 
 # ── 중복 체크 ───────────────────────────────────────────────
-def is_duplicate(ws: gspread.Worksheet, title: str) -> bool:
-    existing = ws.col_values(2)  # 제목 열
-    return title in existing
+def is_duplicate(ws, title):
+    return title in ws.col_values(2)
 
-# ── 메인 수집 루프 ──────────────────────────────────────────
-def run(config_path: str = "config/categories.yaml"):
-    cfg = load_config(config_path)
-    now = datetime.now(KST)
-    date_label = now.strftime("%m월 %d일")
-    collected_at = now.strftime("%Y-%m-%d %H:%M")
+# ── 메인 ────────────────────────────────────────────────────
+def run(config_path="config/categories.yaml"):
+    with open(config_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
 
-    client      = get_sheets_client()
+    now            = datetime.now(KST)
+    date_label     = now.strftime("%m월 %d일")
+    collected_at   = now.strftime("%Y-%m-%d %H:%M")
+    folder_id      = cfg.get("folder_id", "").strip()
+    spreadsheet_id = cfg.get("spreadsheet_id", "").strip()
+
+    sheets_client, drive_client = get_clients()
     spreadsheet = get_or_create_spreadsheet(
-        client, now, cfg.get("spreadsheet_id"), cfg.get("folder_id")
+        sheets_client, drive_client, now, folder_id, spreadsheet_id
     )
     ws = get_or_create_worksheet(spreadsheet, date_label)
 
@@ -228,28 +220,19 @@ def run(config_path: str = "config/categories.yaml"):
                 continue
 
             for art in articles:
-                if not art["title"]:
+                if not art["title"] or is_duplicate(ws, art["title"]):
                     continue
-                if is_duplicate(ws, art["title"]):
-                    continue
-
                 keywords, summary = ai_process(art["title"], art["summary_raw"], cat_name)
-                row = [
-                    cat_name,
-                    art["title"],
+                ws.append_row([
+                    cat_name, art["title"],
                     art.get("source", src["url"]),
-                    collected_at,
-                    keywords,
-                    summary,
-                    art["url"],
-                ]
-                ws.append_row(row, value_input_option="USER_ENTERED")
+                    collected_at, keywords, summary, art["url"],
+                ], value_input_option="USER_ENTERED")
                 total += 1
                 print(f"  ✓ {art['title'][:50]}")
-                time.sleep(0.5)  # API rate limit 방지
+                time.sleep(0.5)
 
-    print(f"\n✅ 수집 완료: {total}건 → '{spreadsheet.title}' / {date_label} 시트")
-    # spreadsheet ID를 출력해두면 GitHub Actions 로그에서 확인 가능
+    print(f"\n✅ 수집 완료: {total}건 → '{spreadsheet.title}' / {date_label} 탭")
     print(f"   Spreadsheet ID: {spreadsheet.id}")
 
 
