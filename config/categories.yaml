@@ -6,7 +6,7 @@ folder_id: "1tcWyrBmHlVMW-x6F7_X9kM9Aqlb0Nq3q"
 spreadsheet_id: ""
 
 # 소스당 기본 수집 건수 (각 소스에서 limit 으로 개별 덮어쓰기 가능)
-limit_per_source: 2
+limit_per_source: 6
 
 categories:
 
