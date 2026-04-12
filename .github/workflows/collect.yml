@@ -8,7 +8,7 @@ on:
       config_path:
         description: "설정 파일 경로"
         required: false
-        default: "config/categories.yml"
+        default: "config/categories.yaml"
 
 jobs:
   collect:
@@ -39,7 +39,7 @@ jobs:
           GOOGLE_OAUTH_TOKEN: ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
         run: |
-          CONFIG="${{ github.event.inputs.config_path || 'config/categories.yml' }}"
+          CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           python src/collector.py "$CONFIG"
 
       - name: JSON 파일 커밋 & 푸시
