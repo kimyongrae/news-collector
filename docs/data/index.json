@@ -1,0 +1,17 @@
+{
+  "months": [
+    {
+      "month": "2026-04",
+      "total": 42,
+      "last_updated": "2026-04-12 15:34",
+      "categories": {
+        "경제": 6,
+        "부동산": 6,
+        "주식": 6,
+        "네이버금융": 24
+      }
+    }
+  ],
+  "spreadsheet": "1WY5i45C058pcd7AD-5DKGep6-UdswPepI6_RQ1-g2TE",
+  "year": 2026
+}
