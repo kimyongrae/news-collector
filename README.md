@@ -3,7 +3,7 @@
 RSS 기반 뉴스 수집기 + Gemini AI 요약 + Google Sheets 저장 + GitHub Pages JSON 배포.
 TubeAI 대시보드(`YoutubeProgram/TubeAI_app`)의 **RSS 뉴스 피드** 데이터 소스로 사용됩니다.
 
-## 데이터 흐름
+## 데이터 흐름 (v2 — 2026-04 개편)
 
 ```
 GitHub Actions (매일 KST 09:07)
@@ -12,19 +12,49 @@ RSS 수집 (config/categories.yaml)
   ↓
 Gemini AI 요약·감성·중요도 분석
   ↓
-① Google Sheets 기록 (백업/뷰어용)
+Google Sheets 기록 (연단위 파일 · 월별 탭)
   ↓
-② docs/data/ JSON 저장 (1차 저장소)
-    ├── index.json                      전체 메타
-    ├── 2026-04.json                    월별 원본 (구 호환)
-    └── 2026/04/
-        ├── index.json                  월 요약 (일별 수, 카테고리별)
-        └── 2026-04-12.json             일별 상세 (TubeAI 가 읽는 파일)
-  ↓
-GitHub Pages 정적 배포
-  ↓
-TubeAI 대시보드가 fetch
+TubeAI serve.py → Sheets API v4 로 직독
 ```
+
+## v2 변경 요약
+
+- **JSON 생성·GitHub Pages 배포 제거**
+  - `docs/data/` 하위 JSON 파일을 더 이상 생성하지 않음
+  - GitHub Pages 구독 불필요 (private repo 에서도 무료로 사용)
+  - `save_json()` 함수 / JSON 분할 로직 완전 제거
+- **GitHub Actions 단순화**
+  - commit/push step 제거 → `permissions: contents: read` 로 축소
+  - 수집·Sheets 기록만 수행 (더 빠르고 안전)
+- **Sheets 컬럼 순서 변경 — 수집시간 첫 열**
+  - 이전: `카테고리 · 제목 · 요약 · ... · 발행시간 · 수집시간`
+  - 변경: `수집시간 · 발행시간 · 카테고리 · 제목 · 요약 · ...`
+  - TubeAI 대시보드에서 수집시간 기반 필터링을 쉽게 하기 위함
+- **TubeAI 는 serve.py 가 Sheets API v4 를 프록시**하여 대시보드에 전달
+  - 브라우저가 직접 Sheets 를 호출하지 않아 CORS 이슈 없음
+  - 서버 메모리 5분 캐시로 Sheets 호출 횟수 최소화
+  - 읽기 무료 · 300 req/min 할당량 (월 수십 건 사용에 영향 없음)
+
+## Sheet 공유 설정 (필수)
+
+TubeAI 가 Sheets API 로 읽을 수 있게 하려면 연단위 파일을 **링크 있는 누구나 뷰어** 로 공유해야 합니다.
+
+```
+Google Drive 또는 해당 Sheet 열기
+  → 우상단 [공유] 버튼
+  → "제한됨" 을 "링크가 있는 모든 사용자" 로 변경
+  → 권한: 뷰어 (쓰기 X)
+  → [완료]
+```
+
+Sheet ID 는 URL 에서 추출합니다:
+```
+https://docs.google.com/spreadsheets/d/1WY5i45C058pcd7AD-5DKGep6-UdswPepI6_RQ1-g2TE/edit
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                       이 부분이 Sheet ID
+```
+
+이 ID 를 TubeAI 설정 → API 키 관리 → **RSS 뉴스 피드** 항목에 붙여넣으면 됩니다.
 
 ---
 

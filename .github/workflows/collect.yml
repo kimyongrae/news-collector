@@ -36,8 +36,9 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # v2 변경: JSON 생성·커밋 step 제거 → write 권한 불필요
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: 📥 저장소 체크아웃
@@ -90,29 +91,6 @@ jobs:
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           echo "--- 실행: python src/collector.py $CONFIG ---"
           python src/collector.py "$CONFIG"
-
-      - name: 📊 생성된 JSON 파일 목록
-        run: |
-          echo "--- docs/data 하위 파일 ---"
-          find docs/data -type f -name "*.json" | sort | head -50 || true
-          echo "--- 파일 수 ---"
-          find docs/data -type f -name "*.json" | wc -l
-
-      - name: 💾 JSON 파일 커밋 & 푸시
-        env:
-          TZ: "Asia/Seoul"
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data/
-          if git diff --cached --quiet; then
-            echo "ℹ️  변경사항 없음 — 커밋 생략"
-          else
-            COMMIT_MSG="📰 뉴스 수집 $(date +'%Y-%m-%d %H:%M KST')"
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "✅ 커밋 & 푸시 완료: $COMMIT_MSG"
-          fi
 
       - name: 🚨 실패 시 요약
         if: failure()
