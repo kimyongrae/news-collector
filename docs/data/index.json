@@ -1,11 +1,22 @@
 {
-  "updated_at": "2026-04-12 15:34",
-  "total_articles": 42,
+  "updated_at": "2026-04-13 11:09",
+  "total_articles": 86,
   "months": [
     {
       "month": "2026-04",
-      "count": 42,
-      "updated_at": "2026-04-12 15:34"
+      "count": 86,
+      "updated_at": "2026-04-13 11:09",
+      "total": 86,
+      "last_updated": "2026-04-13 11:09",
+      "categories": {
+        "경제": 12,
+        "부동산": 12,
+        "주식": 12,
+        "네이버금융": 48,
+        "금리/환율": 2
+      }
     }
-  ]
+  ],
+  "spreadsheet": "1WY5i45C058pcd7AD-5DKGep6-UdswPepI6_RQ1-g2TE",
+  "year": 2026
 }

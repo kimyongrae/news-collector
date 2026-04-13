@@ -1,7 +1,7 @@
 {
   "date": "2026-04-11",
   "count": 4,
-  "collected_at": "2026-04-12 15:34",
+  "collected_at": "2026-04-13 11:09",
   "articles": [
     {
       "category": "stock",
@@ -22,8 +22,7 @@
       "sentiment_label": "중립",
       "importance": 4,
       "published_at": "2026-04-11 14:22",
-      "collected_at": "2026-04-12 15:34",
-      "day": "2026-04-11"
+      "collected_at": "2026-04-12 15:34"
     },
     {
       "category": "stock",
@@ -44,8 +43,7 @@
       "sentiment_label": "긍정",
       "importance": 4,
       "published_at": "2026-04-11 18:07",
-      "collected_at": "2026-04-12 15:34",
-      "day": "2026-04-11"
+      "collected_at": "2026-04-12 15:34"
     },
     {
       "category": "stock",
@@ -67,8 +65,7 @@
       "sentiment_label": "부정",
       "importance": 4,
       "published_at": "2026-04-11 8:05",
-      "collected_at": "2026-04-12 15:34",
-      "day": "2026-04-11"
+      "collected_at": "2026-04-12 15:34"
     },
     {
       "category": "stock",
@@ -89,8 +86,7 @@
       "sentiment_label": "긍정",
       "importance": 3,
       "published_at": "2026-04-11 7:00",
-      "collected_at": "2026-04-12 15:34",
-      "day": "2026-04-11"
+      "collected_at": "2026-04-12 15:34"
     }
   ]
 }
