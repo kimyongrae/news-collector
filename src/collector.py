@@ -20,6 +20,20 @@ import pytz, re, yaml, json, os, sys, time
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 from email.utils import parsedate_to_datetime
 
+# ── .env 로드 (로컬 개발 편의) ─────────────────────────────────
+# GitHub Actions 는 repository secrets 를 os.environ 에 직접 주입하므로
+# python-dotenv 가 없어도 동작합니다. 로컬에서는 .env 파일로 관리하세요.
+try:
+    from dotenv import load_dotenv
+    # 프로젝트 루트의 .env 를 먼저 찾고, 없으면 cwd 의 .env
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(_env_path):
+        load_dotenv(_env_path)
+    else:
+        load_dotenv()
+except ImportError:
+    pass  # dotenv 미설치 — Actions 환경이거나 사용자가 env 를 직접 export 함
+
 import gspread
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build as google_build
@@ -62,10 +76,30 @@ def is_body_error(text: str) -> bool:
 
 # ── OAuth 인증 ───────────────────────────────────────────────
 def get_clients():
-    raw = os.environ.get("GOOGLE_OAUTH_TOKEN", "")
+    """GOOGLE_OAUTH_TOKEN (JSON 문자열) 으로 gspread / drive 클라이언트 생성.
+
+    로컬:          .env 에 GOOGLE_OAUTH_TOKEN 설정 (python-dotenv 자동 로드)
+    GitHub Actions: repository secrets 의 GOOGLE_OAUTH_TOKEN 사용
+    """
+    raw = os.environ.get("GOOGLE_OAUTH_TOKEN", "").strip()
     if not raw:
-        raise ValueError("환경변수 GOOGLE_OAUTH_TOKEN 이 없습니다.")
-    d = json.loads(raw)
+        raise ValueError(
+            "환경변수 GOOGLE_OAUTH_TOKEN 이 없습니다.\n"
+            "  · 로컬:   .env 파일에 설정 (python get_token.py 로 발급)\n"
+            "  · Actions: Settings → Secrets → Actions 에 등록"
+        )
+    try:
+        d = json.loads(raw)
+    except json.JSONDecodeError as err:
+        raise ValueError(
+            "GOOGLE_OAUTH_TOKEN 이 유효한 JSON 이 아닙니다. "
+            "전체 JSON 을 한 줄로 따옴표 없이 붙여넣었는지 확인하세요. "
+            f"(파싱 오류: {err})"
+        )
+    for key in ("refresh_token", "client_id", "client_secret"):
+        if not d.get(key):
+            raise ValueError(f"GOOGLE_OAUTH_TOKEN JSON 에 '{key}' 필드가 없습니다.")
+
     creds = Credentials(
         token=None,
         refresh_token=d["refresh_token"],
@@ -657,8 +691,9 @@ _gemini_model = None
 def _get_model():
     global _gemini_model
     if _gemini_model is None:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if not api_key:
+            print("[경고] GEMINI_API_KEY 미설정 — AI 분석이 단순 추출로 fallback 됩니다", file=sys.stderr)
             return None
         genai.configure(api_key=api_key)
         _gemini_model = genai.GenerativeModel("gemini-2.5-flash")
@@ -890,8 +925,28 @@ def run(config_path="config/categories.yaml"):
     now            = datetime.now(KST)
     month_label    = now.strftime("%Y-%m")          # 탭 이름: 2026-04
     collected_at   = now.strftime("%Y-%m-%d %H:%M")
-    folder_id      = cfg.get("folder_id", "").strip()
-    spreadsheet_id = cfg.get("spreadsheet_id", "").strip()
+
+    # ── 환경변수 > yaml 순으로 우선 적용 ─────────────────────
+    # GDRIVE_FOLDER_ID / GDRIVE_SPREADSHEET_ID 가 설정돼 있으면 그 값을 사용,
+    # 없으면 categories.yaml 의 값을 fallback 으로 사용.
+    folder_id = (
+        os.environ.get("GDRIVE_FOLDER_ID", "").strip()
+        or cfg.get("folder_id", "").strip()
+    )
+    spreadsheet_id = (
+        os.environ.get("GDRIVE_SPREADSHEET_ID", "").strip()
+        or cfg.get("spreadsheet_id", "").strip()
+    )
+
+    if not folder_id and not spreadsheet_id:
+        raise ValueError(
+            "Drive 저장 위치가 지정되지 않았습니다.\n"
+            "  · 환경변수 GDRIVE_FOLDER_ID 를 설정하거나\n"
+            "  · categories.yaml 의 folder_id 를 입력하세요."
+        )
+
+    print(f"[설정] folder_id={folder_id[:8]}... spreadsheet_id={spreadsheet_id[:8] or '(자동)'}")
+    print(f"[설정] 수집 월: {month_label} · KST {collected_at}")
 
     gc, drive = get_clients()
 
@@ -1026,35 +1081,108 @@ def run(config_path="config/categories.yaml"):
 
 
 # ── JSON 저장 ────────────────────────────────────────────────
+
+# TubeAI 프런트엔드가 사용하는 정규화 코드 매핑
+CATEGORY_CODE = {
+    "경제":      "economy",
+    "부동산":    "real-estate",
+    "주식":      "stock",
+    "금리/환율": "rate",
+    "금리·환율": "rate",
+    "네이버금융": "naver-fin",
+}
+SENTIMENT_CODE = {
+    "긍정": "positive",
+    "부정": "negative",
+    "중립": "neutral",
+}
+
+
+def _normalize_article(row_art: dict) -> dict:
+    """시트 원본 행 → TubeAI 프런트엔드용 정규화 스키마."""
+    # keywords: "a, b, c" → ["a", "b", "c"]
+    raw_kw = row_art.get("keywords", "")
+    if isinstance(raw_kw, list):
+        keywords = [str(k).strip() for k in raw_kw if str(k).strip()]
+    else:
+        keywords = [k.strip() for k in str(raw_kw).split(",") if k.strip()]
+
+    # importance: "3" → 3 (1~5 범위)
+    try:
+        importance = int(row_art.get("importance") or 0)
+    except (ValueError, TypeError):
+        importance = 0
+    if importance < 1 or importance > 5:
+        importance = 3
+
+    # 카테고리·감성 코드화
+    cat_label = row_art.get("category", "") or ""
+    cat_code  = CATEGORY_CODE.get(cat_label, "economy")
+    sent_label = row_art.get("sentiment", "중립") or "중립"
+    sent_code  = SENTIMENT_CODE.get(sent_label, "neutral")
+
+    # 언론사: "한국경제_경제" → "한국경제"
+    media_raw = row_art.get("media", "") or ""
+    source = media_raw.split("_", 1)[0] if "_" in media_raw else media_raw
+
+    return {
+        "category":       cat_code,
+        "category_label": cat_label,
+        "title":          row_art.get("title", ""),
+        "summary":        row_art.get("summary", ""),
+        "keywords":       keywords,
+        "source":         source or "출처 미상",
+        "source_detail":  media_raw,
+        "url":            row_art.get("url", ""),
+        "sentiment":      sent_code,
+        "sentiment_label": sent_label,
+        "importance":     importance,
+        "published_at":   row_art.get("published", ""),
+        "collected_at":   row_art.get("collected", ""),
+    }
+
+
+def _article_day(art: dict, month_label: str) -> str:
+    """기사 1건의 소속 일자를 결정. published 우선, 없으면 collected."""
+    for key in ("published_at", "collected_at"):
+        v = art.get(key, "") or ""
+        if v and len(v) >= 10 and v[:10].startswith(month_label):
+            return v[:10]
+    # 그래도 없으면 월 1일로 배치
+    return f"{month_label}-01"
+
+
 def save_json(ws, sp, month_label: str, collected_at: str, now: datetime):
     """
-    수집된 데이터를 docs/data/{YYYY-MM}.json 으로 저장.
-    index.json(전체 월 목록 + 요약)도 함께 갱신.
+    수집된 데이터를 아래 두 구조로 동시 저장한다.
+
+      ① (구) docs/data/{YYYY-MM}.json           ← 월별 원본 (backwards compat)
+      ② (신) docs/data/{YYYY}/{MM}/
+             ├── index.json                     ← 월 요약 (일별 수, 카테고리별 수)
+             └── {YYYY-MM-DD}.json              ← 일별 상세 (TubeAI 가 실제로 읽는 파일)
+
+      ③ docs/data/index.json                    ← 전체 메타 (월 목록)
+         구/신 키를 모두 담아 하나로 운영 — 구 소비자와 신 소비자 모두 호환
     """
     import pathlib
 
     data_dir = pathlib.Path("docs/data")
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── 1. 월별 JSON ─────────────────────────────────────────
-    month_file = data_dir / f"{month_label}.json"
-
-    # 시트에서 전체 데이터 읽기
+    # 시트 읽기
     all_rows = ws.get_all_values()
     if len(all_rows) < 2:
         print("[JSON] 데이터 없음 - 저장 생략")
         return
 
-    header = all_rows[0]   # ["카테고리","제목","요약","주요키워드","언론사","출처","감성","중요도","발행시간","수집시간"]
-    articles = []
+    # 원본 스키마 (구 월별 파일용)
+    raw_articles = []
     for row in all_rows[1:]:
-        # 빈 행 스킵
         if not any(row):
             continue
-        # 컬럼 수 맞추기
-        while len(row) < len(header):
+        while len(row) < 10:
             row.append("")
-        articles.append({
+        raw_articles.append({
             "category":  row[0],
             "title":     row[1],
             "summary":   row[2],
@@ -1067,58 +1195,128 @@ def save_json(ws, sp, month_label: str, collected_at: str, now: datetime):
             "collected": row[9],
         })
 
+    # ── ① 구 월별 JSON ─────────────────────────────────────────
+    month_file = data_dir / f"{month_label}.json"
     month_data = {
         "month":        month_label,
         "spreadsheet":  sp.id,
         "last_updated": collected_at,
-        "total":        len(articles),
-        "articles":     articles,
+        "total":        len(raw_articles),
+        "articles":     raw_articles,
     }
-
     with open(month_file, "w", encoding="utf-8") as f:
         json.dump(month_data, f, ensure_ascii=False, indent=2)
-    print(f"[JSON] {month_file} 저장 완료 ({len(articles)}건)")
+    print(f"[JSON] {month_file} 저장 완료 ({len(raw_articles)}건) [구버전 호환]")
 
-    # ── 2. index.json (월 목록 + 요약) ───────────────────────
+    # ── ② 신 일별 JSON ─────────────────────────────────────────
+    year, mm = month_label.split("-")
+    month_dir = data_dir / year / mm
+    month_dir.mkdir(parents=True, exist_ok=True)
+
+    # 정규화 + 일자별 그룹
+    normalized = [_normalize_article(a) for a in raw_articles]
+    day_buckets: "dict[str, list[dict]]" = {}
+    for art in normalized:
+        day = _article_day(art, month_label)
+        day_buckets.setdefault(day, []).append(art)
+
+    # 월에 해당하지 않는 기존 일별 파일은 남겨두고, 이번 수집에 포함된 날짜만 갱신
+    day_summaries = []
+    for day, items in day_buckets.items():
+        items_sorted = sorted(
+            items,
+            key=lambda x: (-x["importance"], x.get("published_at", "")),
+        )
+        day_doc = {
+            "date":         day,
+            "count":        len(items_sorted),
+            "collected_at": collected_at,
+            "articles":     items_sorted,
+        }
+        day_file = month_dir / f"{day}.json"
+        with open(day_file, "w", encoding="utf-8") as f:
+            json.dump(day_doc, f, ensure_ascii=False, indent=2)
+        print(f"[JSON] {day_file} ({len(items_sorted)}건)")
+
+        # 월 요약용 day 엔트리
+        max_imp = max((it["importance"] for it in items_sorted), default=0)
+        cats_in_day: "dict[str, int]" = {}
+        for it in items_sorted:
+            cats_in_day[it["category_label"]] = cats_in_day.get(it["category_label"], 0) + 1
+        day_summaries.append({
+            "date":           day,
+            "count":          len(items_sorted),
+            "max_importance": max_imp,
+            "categories":     cats_in_day,
+        })
+
+    # 월 인덱스: 기존 파일이 있으면 다른 날짜 엔트리는 보존
+    month_index_file = month_dir / "index.json"
+    existing_days = []
+    if month_index_file.exists():
+        try:
+            with open(month_index_file, encoding="utf-8") as f:
+                existing = json.load(f)
+                existing_days = existing.get("days", []) or []
+        except Exception as err:
+            print(f"[JSON] 기존 월 인덱스 로드 실패 ({err}) — 새로 생성")
+
+    touched_dates = {d["date"] for d in day_summaries}
+    merged_days = [d for d in existing_days if d.get("date") not in touched_dates] + day_summaries
+    merged_days.sort(key=lambda x: x.get("date", ""), reverse=True)
+
+    cat_counts_total: "dict[str, int]" = {}
+    for art in normalized:
+        cat_counts_total[art["category_label"]] = cat_counts_total.get(art["category_label"], 0) + 1
+
+    month_index = {
+        "month":       month_label,
+        "updated_at":  collected_at,
+        "total":       sum(d["count"] for d in merged_days),
+        "days":        merged_days,
+        "by_category": cat_counts_total,
+    }
+    with open(month_index_file, "w", encoding="utf-8") as f:
+        json.dump(month_index, f, ensure_ascii=False, indent=2)
+    print(f"[JSON] {month_index_file} ({len(merged_days)}일치)")
+
+    # ── ③ 루트 index.json (구/신 키 병기) ──────────────────────
     index_file = data_dir / "index.json"
-
-    # 기존 index.json 로드
     if index_file.exists():
         with open(index_file, encoding="utf-8") as f:
             index_data = json.load(f)
     else:
-        index_data = {"months": [], "spreadsheet": sp.id, "year": now.year}
+        index_data = {"months": []}
 
-    # 카테고리별 건수 계산
-    cat_counts = {}
-    for art in articles:
-        c = art["category"]
-        cat_counts[c] = cat_counts.get(c, 0) + 1
-
-    # 해당 월 항목 업데이트 or 추가
     month_entry = {
+        # 신 키 (TubeAI 프런트엔드)
         "month":        month_label,
-        "total":        len(articles),
+        "count":        month_index["total"],
+        "updated_at":   collected_at,
+        # 구 키 (backwards compat)
+        "total":        month_index["total"],
         "last_updated": collected_at,
-        "categories":   cat_counts,
+        "categories":   cat_counts_total,
     }
+
     months = index_data.get("months", [])
     for i, m in enumerate(months):
-        if m["month"] == month_label:
+        if m.get("month") == month_label:
             months[i] = month_entry
             break
     else:
         months.append(month_entry)
 
-    # 월 순서 정렬
-    months.sort(key=lambda x: x["month"])
-    index_data["months"]      = months
-    index_data["spreadsheet"] = sp.id
-    index_data["year"]        = now.year
+    months.sort(key=lambda x: x.get("month", ""))
+    index_data["months"]         = months
+    index_data["spreadsheet"]    = sp.id
+    index_data["year"]           = now.year
+    index_data["updated_at"]     = collected_at
+    index_data["total_articles"] = sum(m.get("count", m.get("total", 0)) for m in months)
 
     with open(index_file, "w", encoding="utf-8") as f:
         json.dump(index_data, f, ensure_ascii=False, indent=2)
-    print(f"[JSON] index.json 갱신 완료 ({len(months)}개 월)")
+    print(f"[JSON] {index_file} 갱신 완료 ({len(months)}개 월)")
 
 
 if __name__ == "__main__":

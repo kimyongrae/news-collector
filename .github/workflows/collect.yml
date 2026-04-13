@@ -1,14 +1,36 @@
 name: 뉴스 자동 수집
 
 on:
+  # ─────────────────────────────────────────────────────────
+  # 스케줄 (UTC 기준)
+  # ─────────────────────────────────────────────────────────
+  # ⚠️ GitHub Actions 공식 문서 권고:
+  #    "The schedule event can be delayed during periods of high loads
+  #     of GitHub Actions workflow runs. High load times include the
+  #     start of every hour. To decrease the chance of delay, schedule
+  #     your workflow to run at a different time of the hour."
+  #
+  # 이전 설정 "0 0 * * *" (UTC 00:00 = KST 09:00) 는 **정시 정각**이라
+  # 부하가 몰려 실행이 건너뛰어지는 경우가 잦았습니다.
+  # 아래는 KST 09:07 (UTC 00:07) 로 이동 — 정시를 피하고 9시 직후에 실행.
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "7 0 * * *"
+
+  # 수동 실행 (Actions 탭 → Run workflow) 및 디버깅용
   workflow_dispatch:
     inputs:
       config_path:
         description: "설정 파일 경로"
         required: false
         default: "config/categories.yaml"
+
+# ───────────────────────────────────────────────────────────
+# 동시 실행 방지 — 이전 실행이 끝나지 않은 상태에서 새 스케줄이
+# 중첩되면 Sheets 쓰기가 충돌할 수 있으므로 순차 실행으로 강제.
+# ───────────────────────────────────────────────────────────
+concurrency:
+  group: news-collector-main
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -18,34 +40,87 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 저장소 체크아웃
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: 🐍 Python 설정
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: pip 캐시 설정
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: pip-
+      - name: 📦 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: 의존성 설치
-        run: pip install -r requirements.txt
-
-      - name: 뉴스 수집 실행
+      - name: 🔐 시크릿 존재 여부 점검
         env:
           GOOGLE_OAUTH_TOKEN: ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID:   ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          echo "--- 시크릿 점검 (값은 출력하지 않음) ---"
+          if [ -z "$GOOGLE_OAUTH_TOKEN" ]; then
+            echo "❌ GOOGLE_OAUTH_TOKEN 미설정 — Settings → Secrets 에 등록하세요"; exit 1
+          else
+            echo "✅ GOOGLE_OAUTH_TOKEN 설정됨 (${#GOOGLE_OAUTH_TOKEN} chars)"
+          fi
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "⚠️  GEMINI_API_KEY 미설정 — AI 분석이 단순 추출로 fallback"
+          else
+            echo "✅ GEMINI_API_KEY 설정됨"
+          fi
+          if [ -z "$GDRIVE_FOLDER_ID" ]; then
+            echo "ℹ️  GDRIVE_FOLDER_ID 미설정 — categories.yaml 의 folder_id 사용"
+          else
+            echo "✅ GDRIVE_FOLDER_ID 설정됨"
+          fi
+
+      - name: 📰 뉴스 수집 실행
+        env:
+          GOOGLE_OAUTH_TOKEN:    ${{ secrets.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID:      ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_SPREADSHEET_ID: ${{ secrets.GDRIVE_SPREADSHEET_ID }}
+          PYTHONUNBUFFERED:      "1"
+          TZ:                    "Asia/Seoul"
         run: |
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
+          echo "--- 실행: python src/collector.py $CONFIG ---"
           python src/collector.py "$CONFIG"
 
-      - name: JSON 파일 커밋 & 푸시
+      - name: 📊 생성된 JSON 파일 목록
+        run: |
+          echo "--- docs/data 하위 파일 ---"
+          find docs/data -type f -name "*.json" | sort | head -50 || true
+          echo "--- 파일 수 ---"
+          find docs/data -type f -name "*.json" | wc -l
+
+      - name: 💾 JSON 파일 커밋 & 푸시
+        env:
+          TZ: "Asia/Seoul"
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data/
-          git diff --cached --quiet || git commit -m "📰 뉴스 수집 $(date +'%Y-%m-%d %H:%M KST')"
-          git push
+          if git diff --cached --quiet; then
+            echo "ℹ️  변경사항 없음 — 커밋 생략"
+          else
+            COMMIT_MSG="📰 뉴스 수집 $(date +'%Y-%m-%d %H:%M KST')"
+            git commit -m "$COMMIT_MSG"
+            git push
+            echo "✅ 커밋 & 푸시 완료: $COMMIT_MSG"
+          fi
+
+      - name: 🚨 실패 시 요약
+        if: failure()
+        run: |
+          echo "::error::뉴스 수집 워크플로 실패"
+          echo "이전 단계 로그를 확인하세요."
+          echo "체크리스트:"
+          echo "  1. Secrets 가 모두 등록돼 있는지 (GOOGLE_OAUTH_TOKEN, GEMINI_API_KEY)"
+          echo "  2. OAuth refresh_token 이 만료/취소되지 않았는지"
+          echo "  3. Google Drive folder_id 가 유효한지"
+          echo "  4. requirements.txt 의존성이 빌드되는지"
