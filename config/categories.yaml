@@ -7,6 +7,7 @@
 #   · 로컬:    .env 파일에 설정
 #   · Actions: repository secrets 에 등록
 # 아래 값들은 환경변수가 없을 때 사용되는 fallback 입니다.
+# .
 # ─────────────────────────────────────────────────────────────
 folder_id: "1tcWyrBmHlVMW-x6F7_X9kM9Aqlb0Nq3q"
 spreadsheet_id: ""
