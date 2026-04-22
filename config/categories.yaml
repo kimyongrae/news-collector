@@ -143,17 +143,77 @@ categories:
         label: 네이버금융_산업
         limit: 6
 
-  # # ── IT/산업 (필요 시 주석 해제) ──────────────────────────
-  # - name: IT/산업
-  #   sources:
-  #     - type: rss
-  #       url: https://www.hankyung.com/feed/it
-  #       label: 한국경제_IT
-  #       crawl_body: true
-  #     - type: rss
-  #       url: https://rss.mk.co.kr/rss/30000007.xml
-  #       label: 매일경제_IT
-  #       crawl_body: true
+  # ── 많이 본 뉴스 (조회수 TOP) ─────────────────────────────
+  # ✅ 2026-04-22 추가: 네이버 랭킹 페이지에서 조회순/댓글순 TOP 기사를 수집.
+  #    순위·조회수(혹은 댓글수) 가 시트 K/L 열에 기록되어 TubeAI 대시보드에서
+  #    "조회수 많은 뉴스 먼저" 로 정렬 가능.
+  #    sectionId 매핑:
+  #      100=정치 / 101=경제 / 102=사회 / 103=생활문화 / 104=세계 / 105=IT과학
+  - name: 많이본뉴스_경제
+    sources:
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularDay.naver?sectionId=101
+        label: 네이버랭킹_경제(조회)
+        ranking_type: view
+        limit: 15
+
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularMemo.naver?sectionId=101
+        label: 네이버랭킹_경제(댓글)
+        ranking_type: comment
+        limit: 10
+
+  - name: 많이본뉴스_IT
+    sources:
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularDay.naver?sectionId=105
+        label: 네이버랭킹_IT과학(조회)
+        ranking_type: view
+        limit: 12
+
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularMemo.naver?sectionId=105
+        label: 네이버랭킹_IT과학(댓글)
+        ranking_type: comment
+        limit: 8
+
+  - name: 많이본뉴스_세계
+    sources:
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularDay.naver?sectionId=104
+        label: 네이버랭킹_세계(조회)
+        ranking_type: view
+        limit: 10
+
+  - name: 많이본뉴스_전체
+    sources:
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularDay.naver
+        label: 네이버랭킹_전체(조회)
+        ranking_type: view
+        limit: 15
+
+      - type: naver_ranking
+        url: https://news.naver.com/main/ranking/popularMemo.naver
+        label: 네이버랭킹_전체(댓글)
+        ranking_type: comment
+        limit: 10
+
+  # ── IT/산업 ─────────────────────────────────────────────
+  - name: IT/산업
+    sources:
+      - type: rss
+        url: https://www.hankyung.com/feed/it
+        label: 한국경제_IT
+        crawl_body: true
+      - type: rss
+        url: https://rss.mk.co.kr/rss/30000007.xml
+        label: 매일경제_IT
+        crawl_body: true
+      - type: rss
+        url: https://www.yna.co.kr/it/rss.xml
+        label: 연합뉴스_IT
+        crawl_body: true
 
   # # ── 정책/규제 (필요 시 주석 해제) ───────────────────────
   # - name: 정책/규제

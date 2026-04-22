@@ -46,12 +46,14 @@ SCOPES = [
 ]
 
 # ─────────────────────────────────────────────────────────────
-# 컬럼 구조 v2 — 수집시간을 첫 열로 이동 (TubeAI 대시보드에서
-# 수집시간 기반 필터링을 쉽게 하기 위함)
+# 컬럼 구조 v3 (2026-04-22) — 조회수·순위 2 컬럼 추가.
+#   · 순위 : 랭킹 페이지(네이버 popularDay 등) 수집 시 1,2,3... / RSS 는 공백
+#   · 조회수 : 랭킹 페이지에서 추출되면 숫자, 아니면 공백.
+#              (공백일 때 TubeAI 대시보드가 "—" 로 표시)
 # ─────────────────────────────────────────────────────────────
 HEADERS    = ["수집시간", "발행시간", "카테고리", "제목", "요약", "주요키워드",
-              "언론사",   "출처",    "감성",    "중요도"]
-COL_WIDTHS = [140, 120, 90, 280, 340, 200, 90, 80, 55, 55]
+              "언론사",   "출처",    "감성",    "중요도", "순위",  "조회수"]
+COL_WIDTHS = [140, 120, 90, 280, 340, 200, 90, 80, 55, 55, 55, 80]
 HDR_LAST   = chr(ord('A') + len(HEADERS) - 1)
 HDR_RANGE  = f"A1:{HDR_LAST}1"
 TITLE_COL  = 4  # D열 (제목)
@@ -585,6 +587,8 @@ def fetch_naver_finance(section_url: str, label: str, limit: int = 8) -> list:
             "media": label,
             "pub":   "",
             "raw":   body,
+            "rank":  "",
+            "views": "",
         })
         time.sleep(0.3)
 
@@ -592,6 +596,110 @@ def fetch_naver_finance(section_url: str, label: str, limit: int = 8) -> list:
             break
 
     print(f"    → {len(arts)}건 수집 완료")
+    return arts
+
+
+# ── ✅ 네이버 랭킹 뉴스 (조회순/댓글순) ─────────────────────────
+# 랭킹 페이지 예:
+#   · https://news.naver.com/main/ranking/popularDay.naver  (많이 본 뉴스 — 전 영역)
+#   · https://news.naver.com/main/ranking/popularMemo.naver (댓글 많은 뉴스)
+#   · 섹션별: ...?sectionId=101 (경제), 105 (IT), 100 (정치) 등
+# 순위·댓글수·조회수를 추출해 rank/views 필드로 보존.
+def fetch_naver_ranking(section_url: str, label: str, limit: int = 12,
+                        ranking_type: str = "view") -> list:
+    """
+    네이버 뉴스 랭킹 페이지를 파싱해 순위·조회수(혹은 댓글수) 포함 기사 목록 반환.
+
+    ranking_type:
+      · "view"    → 조회순 랭킹 (page views)
+      · "comment" → 댓글 많은 순 랭킹
+    """
+    try:
+        resp = SESSION.get(
+            section_url,
+            headers={"Referer": "https://news.naver.com/"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"  [네이버 랭킹 실패] {label} → {e}")
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    # 랭킹 페이지 구조: <ul class="rankingnews_list"> 안에 <li class="as_thumb">...
+    # 각 <li> 에 순위 숫자 + 제목 링크 + 조회수/댓글수 span
+    arts = []
+    rank_items = soup.select(
+        "ul.rankingnews_list li, div.rankingnews_box li, li.as_thumb, div.box_ranking li"
+    )
+    if not rank_items:
+        # fallback — 일반 a 태그 중 랭킹 숫자 근처
+        rank_items = soup.select("ol.ranking_list li, ul.lst_type01 li")
+
+    rank_counter = 0
+    seen = set()
+    for li in rank_items:
+        rank_counter += 1
+        a = li.select_one("a.list_title, a.list_headline, a[href*='n.news.naver'], a[href*='news.naver']")
+        if not a:
+            # 마지막 fallback
+            a = li.find("a")
+        if not a or not a.get("href"):
+            continue
+        title = a.get_text(strip=True)
+        if not title or len(title) < 6:
+            continue
+        if title in seen:
+            continue
+        seen.add(title)
+
+        url = a.get("href", "")
+        if url.startswith("/"):
+            url = "https://news.naver.com" + url
+
+        # 조회수/댓글수 추출 — span.list_view, span.list_commend, span.count 등
+        views = ""
+        for sel in [
+            "span.list_view", "span.count_view", "em.view", "span.view",
+            "span.list_commend", "span.count_comment", "em.comment", "span.comment_count",
+        ]:
+            el = li.select_one(sel)
+            if el:
+                txt = re.sub(r"[^\d]", "", el.get_text())
+                if txt:
+                    views = txt
+                    break
+
+        # 언론사 — span.list_press, span.wrt_tit 등
+        media_press = label
+        for sel in ["span.list_press", "span.wrt_tit", "em.info_press"]:
+            el = li.select_one(sel)
+            if el:
+                media_press = el.get_text(strip=True)
+                break
+
+        print(f"    #{rank_counter} [{views or '조회수N/A'}] {title[:50]}")
+        body = fetch_body(url, referer="https://news.naver.com/")
+        if is_body_error(body):
+            body = ""
+
+        arts.append({
+            "title": title,
+            "url":   url,
+            "media": media_press,
+            "pub":   "",
+            "raw":   body,
+            "rank":  rank_counter,      # 1,2,3... (랭킹 페이지 순서 보존)
+            "views": views,             # "12345" 문자열 (빈값 가능)
+            "rank_type": ranking_type,  # "view" | "comment"
+        })
+        time.sleep(0.25)
+
+        if len(arts) >= limit:
+            break
+
+    print(f"    → {len(arts)}건 (랭킹 {ranking_type}) 수집 완료")
     return arts
 
 
@@ -647,6 +755,8 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None):
                 "media": media,
                 "pub":   pub,
                 "raw":   raw_text,
+                "rank":  "",     # RSS 는 순위 없음
+                "views": "",     # RSS 는 조회수 없음
             })
 
             if len(arts) >= limit:
@@ -680,7 +790,10 @@ def fetch_web(url, selectors, label="", limit=10):
         if not s and l:
             s = fetch_body(l)
         if t:
-            arts.append({"title": t, "url": l, "media": label or url, "pub": "", "raw": s})
+            arts.append({
+                "title": t, "url": l, "media": label or url, "pub": "", "raw": s,
+                "rank": "", "views": "",
+            })
     return arts
 
 
@@ -981,7 +1094,14 @@ def run(config_path="config/categories.yaml"):
 
         rows = []
         for art, ai in zip(batch, ai_results):
-            # HEADERS 순서와 일치 — 수집시간을 맨 앞에
+            # HEADERS 순서 (v3) — 수집시간 첫 열, 뒤에 순위/조회수 추가
+            rank_val  = art.get("rank", "")
+            views_val = art.get("views", "")
+            # 조회수가 숫자문자열이면 int 로 전달해 Sheets 에서 숫자 정렬 가능하게
+            try:
+                views_cell = int(views_val) if (isinstance(views_val, str) and views_val.isdigit()) else views_val
+            except Exception:
+                views_cell = views_val
             rows.append([
                 collected_at,           # A 수집시간
                 art["pub"],             # B 발행시간
@@ -993,10 +1113,15 @@ def run(config_path="config/categories.yaml"):
                 art.get("url", ""),     # H 출처
                 ai["sentiment"],        # I 감성
                 ai["importance"],       # J 중요도
+                rank_val,               # K 순위 (랭킹 페이지만 숫자)
+                views_cell,             # L 조회수 (랭킹 페이지에서 추출 성공 시)
             ])
             global_title_set.add(art["title"])
             total += 1
-            print(f"  ✓ [{ai['importance']}★/{ai['sentiment']}] {art['title'][:50]}")
+            rank_tag = f"#{rank_val}" if rank_val else ""
+            view_tag = f"조회 {views_val}" if views_val else ""
+            extra    = " ".join(x for x in [rank_tag, view_tag] if x)
+            print(f"  ✓ [{ai['importance']}★/{ai['sentiment']}] {extra} {art['title'][:50]}")
 
         ws.append_rows(rows, value_input_option="USER_ENTERED")
 
@@ -1035,6 +1160,12 @@ def run(config_path="config/categories.yaml"):
             try:
                 if src_type == "naver_finance":
                     arts = fetch_naver_finance(src_url, src_label, src_limit)
+                elif src_type == "naver_ranking":
+                    # 랭킹 페이지 — limit 을 좀 여유있게 잡아 조회수 상위 기사를 많이 가져옴
+                    arts = fetch_naver_ranking(
+                        src_url, src_label, src_limit,
+                        ranking_type=src.get("ranking_type", "view"),
+                    )
                 elif src_type == "rss":
                     arts = fetch_rss(
                         src_url, src_label, src_limit,
