@@ -70,8 +70,20 @@ https://docs.google.com/spreadsheets/d/1WY5i45C058pcd7AD-5DKGep6-UdswPepI6_RQ1-g
 | `GDRIVE_SPREADSHEET_ID` | ⬜ | 특정 스프레드시트 직접 지정 (없으면 연도별 자동 생성) |
 | `GOOGLE_OAUTH_CLIENT_ID` | ⬜ | `get_token.py` 에서만 사용 |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | ⬜ | `get_token.py` 에서만 사용 |
+| `SKIP_GEMINI` | ⬜ | `1` 로 설정 시 Gemini 호출 전부 스킵 → 규칙 기반 fallback 만 사용 (쿼터 우회) |
+| `AI_BATCH_SIZE` | ⬜ | 한 API 호출에 묶을 기사 수. 기본 `20` (호출 횟수 최소화) |
+| `AI_CALL_DELAY` | ⬜ | API 호출 간 딜레이(초). 기본 `1.5` |
 
 ⚠️ = 필수이지만 fallback 있음 · ⬜ = 선택
+
+### Gemini 쿼터 관리
+
+Gemini 무료 티어는 **분당 5회 / 일일 20회** 로 타이트합니다. 소스가 많아지면 자동 처리:
+
+- **배치 크기 20** 이 기본 — 20 기사 묶어 1 API 호출 → 일 400 기사까지 AI 로 커버 가능
+- 실행 중 `429 Quota exceeded` 감지 시 **circuit breaker 작동** → 남은 모든 기사는 즉시
+  규칙 기반 fallback 으로 전환 (재시도 시간 낭비 안 함)
+- Gemini 를 아예 쓰고 싶지 않으면 `SKIP_GEMINI=1` 설정 → 처음부터 전체 fallback
 
 ### 로컬 개발 — `.env`
 

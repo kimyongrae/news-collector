@@ -798,16 +798,43 @@ def fetch_web(url, selectors, label="", limit=10):
 
 
 # ── Gemini AI ────────────────────────────────────────────────
-# 배치 크기: 한 번의 API 호출에 묶을 기사 수
-AI_BATCH_SIZE = 5
+# 배치 크기: 한 번의 API 호출에 묶을 기사 수.
+#   무료 쿼터가 일 20회(가입 직후) ~ 분당 5회 로 매우 타이트해서, 배치를 크게 묶어
+#   호출 횟수 자체를 줄여야 fallback 없이 최대한 많은 기사를 AI 처리할 수 있다.
+#   (20개씩 묶으면 1회 호출에 20 기사 처리 → 일 400 기사까지 AI 로 커버)
+AI_BATCH_SIZE = int(os.environ.get("AI_BATCH_SIZE", "20"))
 
 # API 호출 간 딜레이 (초) - rate limit 방지
-AI_CALL_DELAY = 1.5
+AI_CALL_DELAY = float(os.environ.get("AI_CALL_DELAY", "1.5"))
+
+# ── 쿼터 소진 / Gemini 비활성 플래그 ──────────────────────────
+# Gemini 는 **선택 사항** — 규칙 기반 fallback(extract_kw / _guess_sentiment /
+#   _guess_importance / 본문 앞 300자 요약) 이 항상 동작하므로 API 키 없어도 OK.
+#
+# · SKIP_GEMINI=1 env 설정 시 처음부터 전체 fallback 으로만 처리 (쿼터 걱정 불필요).
+# · 세션 중 429(쿼터 초과) 에러가 발생하면 _gemini_circuit_open=True 로 전환되어
+#   남은 모든 기사는 추가 API 호출 없이 fallback 으로 즉시 처리 (무의미한 재시도 방지).
+_SKIP_GEMINI_ENV = os.environ.get("SKIP_GEMINI", "").strip().lower() in ("1", "true", "yes")
+_gemini_circuit_open = False
 
 _gemini_model = None
 
+def _is_quota_err(exc) -> bool:
+    s = str(exc).lower()
+    return ("429" in s) or ("quota" in s) or ("rate limit" in s) or ("resource_exhausted" in s)
+
+def _trip_gemini_circuit(reason: str = ""):
+    """쿼터 소진 감지 시 호출 — 이후 _get_model() 은 None 반환 → 전체 fallback."""
+    global _gemini_circuit_open
+    if not _gemini_circuit_open:
+        _gemini_circuit_open = True
+        print(f"  ⚠ Gemini 쿼터 소진 감지 → 남은 기사는 규칙 기반 fallback 으로 처리합니다. ({reason})", file=sys.stderr)
+
 def _get_model():
     global _gemini_model
+    # SKIP_GEMINI 또는 circuit open 상태이면 API 호출 자체를 하지 않음
+    if _SKIP_GEMINI_ENV or _gemini_circuit_open:
+        return None
     if _gemini_model is None:
         api_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if not api_key:
@@ -874,10 +901,11 @@ def ai_process_batch(articles: list, category: str) -> list:
     articles: [{"title":..., "raw":...}, ...]
     반환:     [{"keywords":..., "summary":..., "sentiment":..., "importance":...}, ...]
     배치로 Gemini 1회 호출. 실패 시 개별 재시도.
+    circuit open(쿼터 소진) / API 키 없음 / SKIP_GEMINI=1 인 경우 전체 fallback.
     """
     model = _get_model()
 
-    # API 키 없으면 전체 fallback
+    # API 키 없음 / SKIP_GEMINI / circuit open — 전체 fallback (추가 호출 없음)
     if model is None:
         return [_fallback_single(a["title"], a.get("raw","")) for a in articles]
 
@@ -943,9 +971,13 @@ def ai_process_batch(articles: list, category: str) -> list:
         else:
             print(f"  [AI 배치 파싱 실패] 개별 재시도...")
     except Exception as ex:
+        # 쿼터 초과 — circuit 열고 즉시 fallback. 재시도 시간 낭비 방지.
+        if _is_quota_err(ex):
+            _trip_gemini_circuit(f"배치 호출 중 {str(ex)[:80]}")
+            return [_fallback_single(a["title"], a.get("raw","")) for a in articles]
         print(f"  [AI 배치 실패] {ex} → 개별 재시도...")
 
-    # 배치 실패 → 개별 재시도
+    # 배치 실패 (non-quota) → 개별 재시도
     time.sleep(AI_CALL_DELAY)
     return [_ai_process_single(a["title"], a.get("raw",""), category) for a in articles]
 
@@ -985,7 +1017,10 @@ def _ai_process_single(title: str, raw: str, category: str) -> dict:
             "importance": imp,
         }
     except Exception as ex:
-        print(f"  [AI 단건 실패] {ex}")
+        if _is_quota_err(ex):
+            _trip_gemini_circuit(f"단건 호출 중 {str(ex)[:80]}")
+        else:
+            print(f"  [AI 단건 실패] {ex}")
         return _fallback_single(title, raw)
 
 
