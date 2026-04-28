@@ -39,6 +39,9 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build as google_build
 import google.generativeai as genai
 
+# Supabase 동시 쓰기 (실패 격리 — 시트 흐름에는 영향 없음)
+from supabase_client import SupabaseClient, to_supabase_row
+
 KST    = pytz.timezone("Asia/Seoul")
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -1223,6 +1226,17 @@ def run(config_path="config/categories.yaml"):
 
     gc, drive = get_clients()
 
+    # ── Supabase 클라이언트 (선택) ─────────────────────────────
+    # SUPABASE_URL + SUPABASE_SERVICE_KEY 가 있으면 자동으로 동시 쓰기.
+    # 없으면 enabled=False 가 되어 시트만 기록 (이전 동작과 동일).
+    sb = SupabaseClient()
+    sb_retention_days = int(os.environ.get("SUPABASE_RETENTION_DAYS", "90"))
+    if sb.enabled:
+        sb.cleanup_old(days=sb_retention_days)
+    sb_inserted_total = 0
+    # collected_at 을 ISO8601(UTC) 로 변환 — Supabase timestamptz 용
+    collected_at_iso = now.astimezone(pytz.UTC).isoformat()
+
     # ── 매월 1일 retention cleanup (6개월 보관 정책) ─────────
     # · NEWS_RETENTION_MONTHS 환경변수로 보관 개월 수 조정 가능 (기본 6)
     # · NEWS_RETENTION_FORCE=1 이면 1일이 아니어도 강제 실행 (수동 정리용)
@@ -1250,6 +1264,10 @@ def run(config_path="config/categories.yaml"):
 
     total    = 0
     fmt_reqs = []
+
+    def _accumulate_sb_inserted(n: int):
+        nonlocal sb_inserted_total
+        sb_inserted_total += n
 
     def flush_batch(batch: list, cat_name: str):
         """기사 배치를 AI로 분석하고 시트에 일괄 기록"""
@@ -1295,6 +1313,19 @@ def run(config_path="config/categories.yaml"):
             print(f"  ✓ [{ai['importance']}★/{ai['sentiment']}] {extra} {art['title'][:50]}")
 
         ws.append_rows(rows, value_input_option="USER_ENTERED")
+
+        # ── Supabase 동시 쓰기 (실패 격리) ──────────────────────
+        if sb.enabled:
+            try:
+                sb_rows = [
+                    to_supabase_row(art, ai, cat_name, collected_at_iso)
+                    for art, ai in zip(batch, ai_results)
+                ]
+                nonlocal_inserted = sb.insert_articles(sb_rows)
+                # nonlocal 누적 (closure 변수)
+                _accumulate_sb_inserted(nonlocal_inserted)
+            except Exception as e:
+                print(f"  [Supabase 쓰기 실패 — 시트만 기록] {e}", file=sys.stderr)
 
         for i, (_, ai) in enumerate(zip(batch, ai_results)):
             c = imp_color(ai["importance"])
@@ -1387,6 +1418,10 @@ def run(config_path="config/categories.yaml"):
 
     print(f"\n✅ 완료: {total}건 → '{sp.title}' / {month_label} 탭")
     print(f"   URL: https://docs.google.com/spreadsheets/d/{sp.id}")
+    if sb.enabled:
+        print(f"   Supabase: {sb_inserted_total}건 insert (retention={sb_retention_days}일)")
+    else:
+        print(f"   Supabase: 비활성 (env 미설정)")
 
 
 if __name__ == "__main__":

@@ -200,6 +200,7 @@ categories:
         limit: 10
 
   # ── IT/산업 ─────────────────────────────────────────────
+  # 2026-04-28 보강: IT조선 / 지디넷코리아 / 디지털타임스 / 네이버 IT섹션 추가
   - name: IT/산업
     sources:
       - type: rss
@@ -213,6 +214,22 @@ categories:
       - type: rss
         url: https://www.yna.co.kr/it/rss.xml
         label: 연합뉴스_IT
+        crawl_body: true
+      - type: rss
+        url: https://it.chosun.com/rss/rss_all.xml
+        label: IT조선
+        crawl_body: true
+      - type: rss
+        url: https://feeds.feedburner.com/zdkorea
+        label: 지디넷코리아
+        crawl_body: true
+      - type: rss
+        url: https://www.dt.co.kr/rss/rss_all.xml
+        label: 디지털타임스
+        crawl_body: true
+      - type: rss
+        url: https://rss.etnews.com/Section902.xml
+        label: 전자신문_IT
         crawl_body: true
 
   # # ── 정책/규제 (필요 시 주석 해제) ───────────────────────

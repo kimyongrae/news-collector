@@ -36,9 +36,9 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # v2 변경: JSON 생성·커밋 step 제거 → write 권한 불필요
+    # 2026-04-28: LAST_RUN.txt 자동 커밋으로 60일 비활성 → schedule 자동 비활성 방지
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: 📥 저장소 체크아웃
@@ -58,9 +58,11 @@ jobs:
 
       - name: 🔐 시크릿 존재 여부 점검
         env:
-          GOOGLE_OAUTH_TOKEN: ${{ secrets.GOOGLE_OAUTH_TOKEN }}
-          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
-          GDRIVE_FOLDER_ID:   ${{ secrets.GDRIVE_FOLDER_ID }}
+          GOOGLE_OAUTH_TOKEN:   ${{ secrets.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID:     ${{ secrets.GDRIVE_FOLDER_ID }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           echo "--- 시크릿 점검 (값은 출력하지 않음) ---"
           if [ -z "$GOOGLE_OAUTH_TOKEN" ]; then
@@ -78,6 +80,11 @@ jobs:
           else
             echo "✅ GDRIVE_FOLDER_ID 설정됨"
           fi
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "ℹ️  Supabase 미설정 — Sheets 단독 저장 (정상 동작)"
+          else
+            echo "✅ Supabase 설정됨"
+          fi
 
       - name: 📰 뉴스 수집 실행
         env:
@@ -85,12 +92,34 @@ jobs:
           GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
           GDRIVE_FOLDER_ID:      ${{ secrets.GDRIVE_FOLDER_ID }}
           GDRIVE_SPREADSHEET_ID: ${{ secrets.GDRIVE_SPREADSHEET_ID }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
           PYTHONUNBUFFERED:      "1"
           TZ:                    "Asia/Seoul"
         run: |
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           echo "--- 실행: python src/collector.py $CONFIG ---"
           python src/collector.py "$CONFIG"
+
+      # ─────────────────────────────────────────────────────
+      # 60일 무커밋 시 GitHub 가 schedule 을 자동 비활성화하므로
+      # 매 실행마다 LAST_RUN.txt 에 타임스탬프 기록 후 커밋·푸시.
+      # 변경 없으면 (실패 시) 그냥 스킵.
+      # ─────────────────────────────────────────────────────
+      - name: 💓 keepalive — LAST_RUN.txt 갱신
+        if: success()
+        run: |
+          mkdir -p .github
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/LAST_RUN.txt
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/LAST_RUN.txt
+          if git diff --cached --quiet; then
+            echo "no changes — skip"
+          else
+            git commit -m "chore: keepalive $(date -u +%F)"
+            git push
+          fi
 
       - name: 🚨 실패 시 요약
         if: failure()
