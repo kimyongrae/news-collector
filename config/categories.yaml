@@ -232,6 +232,69 @@ categories:
         label: 전자신문_IT
         crawl_body: true
 
+  # ── 자기계발 ─────────────────────────────────────────────
+  # Google News RSS 검색 피드 기반. 고정 RSS 가 적은 도메인이라 키워드 검색형 RSS 로 수집.
+  - name: 자기계발
+    keyword_filter:
+      - 자기계발
+      - 자기 개발
+      - 자기관리
+      - 습관
+      - 루틴
+      - 생산성
+      - 시간관리
+      - 목표
+      - 동기부여
+      - 공부법
+      - 성장
+      - 커리어
+      - 독서
+      - 멘토링
+    sources:
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EC%9E%90%EA%B8%B0%EA%B3%84%EB%B0%9C%20OR%20%EC%9E%90%EA%B8%B0%EA%B4%80%EB%A6%AC%20OR%20%EC%83%9D%EC%82%B0%EC%84%B1%20OR%20%EC%8A%B5%EA%B4%80&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_자기계발
+        crawl_body: true
+        limit: 12
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EC%8B%9C%EA%B0%84%EA%B4%80%EB%A6%AC%20OR%20%EB%AA%A9%ED%91%9C%EC%84%A4%EC%A0%95%20OR%20%EB%8F%99%EA%B8%B0%EB%B6%80%EC%97%AC%20OR%20%EA%B3%B5%EB%B6%80%EB%B2%95&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_성장습관
+        crawl_body: true
+        limit: 10
+
+  # ── 심리 ─────────────────────────────────────────────────
+  # 심리학·정신건강·관계·감정관리 이슈를 영상 소재로 쓰기 위한 검색형 RSS.
+  - name: 심리
+    keyword_filter:
+      - 심리
+      - 심리학
+      - 정신건강
+      - 마음건강
+      - 불안
+      - 스트레스
+      - 번아웃
+      - 우울
+      - 감정
+      - 자존감
+      - 관계
+      - 대인관계
+      - 상담
+      - 명상
+      - 마음챙김
+    sources:
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EC%8B%AC%EB%A6%AC%ED%95%99%20OR%20%EC%A0%95%EC%8B%A0%EA%B1%B4%EA%B0%95%20OR%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95%20OR%20%EC%8A%A4%ED%8A%B8%EB%A0%88%EC%8A%A4&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_심리건강
+        crawl_body: true
+        limit: 12
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EC%9E%90%EC%A1%B4%EA%B0%90%20OR%20%EB%B2%88%EC%95%84%EC%9B%83%20OR%20%EB%B6%88%EC%95%88%20OR%20%EA%B0%90%EC%A0%95%EA%B4%80%EB%A6%AC%20OR%20%EB%8C%80%EC%9D%B8%EA%B4%80%EA%B3%84&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_감정관계
+        crawl_body: true
+        limit: 10
+
   # # ── 정책/규제 (필요 시 주석 해제) ───────────────────────
   # - name: 정책/규제
   #   sources:
