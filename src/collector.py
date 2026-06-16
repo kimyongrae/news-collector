@@ -842,9 +842,10 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None):
             if not title:
                 continue
 
-            # ✅ 키워드 필터 (금리/환율 카테고리 전용)
+            # ✅ 키워드 필터
             if keyword_filter:
-                if not any(kw in title for kw in keyword_filter):
+                title_norm = title.lower()
+                if not any(str(kw).lower() in title_norm for kw in keyword_filter):
                     continue
 
             pub = ""
@@ -1369,10 +1370,11 @@ def run(config_path="config/categories.yaml"):
                         ranking_type=src.get("ranking_type", "view"),
                     )
                 elif src_type == "rss":
+                    src_keyword_filter = src.get("keyword_filter", keyword_filter)
                     arts = fetch_rss(
                         src_url, src_label, src_limit,
                         crawl_body=src.get("crawl_body", True),
-                        keyword_filter=keyword_filter,
+                        keyword_filter=src_keyword_filter,
                     )
                 elif src_type == "web":
                     arts = fetch_web(src_url, src.get("selectors", {}), src_label, src_limit)
