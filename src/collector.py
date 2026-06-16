@@ -827,10 +827,11 @@ def fetch_naver_ranking(section_url: str, label: str, limit: int = 12,
 
 
 # ── RSS 수집 ─────────────────────────────────────────────────
-def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None):
+def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None, exclude_keyword_filter=None):
     """
     RSS 파싱. summary 짧으면 기사 직접 크롤링.
-    keyword_filter: 제목에 이 키워드 중 하나 이상 포함된 기사만 수집 (금리/환율용)
+    keyword_filter: 제목에 이 키워드 중 하나 이상 포함된 기사만 수집
+    exclude_keyword_filter: 제목에 이 키워드가 있으면 제외 (광범위 카테고리 중복 방지)
     """
     try:
         feed  = feedparser.parse(url)
@@ -846,6 +847,10 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None):
             if keyword_filter:
                 title_norm = title.lower()
                 if not any(str(kw).lower() in title_norm for kw in keyword_filter):
+                    continue
+            if exclude_keyword_filter:
+                title_norm = title.lower()
+                if any(str(kw).lower() in title_norm for kw in exclude_keyword_filter):
                     continue
 
             pub = ""
@@ -1347,6 +1352,7 @@ def run(config_path="config/categories.yaml"):
         cat_name       = cat["name"]
         sources        = cat.get("sources", [])
         keyword_filter = cat.get("keyword_filter", None)
+        exclude_keyword_filter = cat.get("exclude_keyword_filter", None)
         limit          = cfg.get("limit_per_source", 8)
 
         print(f"\n▶ [{cat_name}] {len(sources)}개 소스")
@@ -1371,10 +1377,12 @@ def run(config_path="config/categories.yaml"):
                     )
                 elif src_type == "rss":
                     src_keyword_filter = src.get("keyword_filter", keyword_filter)
+                    src_exclude_keyword_filter = src.get("exclude_keyword_filter", exclude_keyword_filter)
                     arts = fetch_rss(
                         src_url, src_label, src_limit,
                         crawl_body=src.get("crawl_body", True),
                         keyword_filter=src_keyword_filter,
+                        exclude_keyword_filter=src_exclude_keyword_filter,
                     )
                 elif src_type == "web":
                     arts = fetch_web(src_url, src.get("selectors", {}), src_label, src_limit)

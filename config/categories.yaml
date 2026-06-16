@@ -19,6 +19,32 @@ categories:
 
   # ── 경제 ─────────────────────────────────────────────────
   - name: 경제
+    # 주식/부동산/금리·환율 전용 카테고리와 겹치는 기사는 넓은 경제 탭에서 제외.
+    exclude_keyword_filter:
+      - 주식
+      - 증시
+      - 코스피
+      - 코스닥
+      - 나스닥
+      - 종목
+      - 실적
+      - 배당
+      - 부동산
+      - 아파트
+      - 전세
+      - 월세
+      - 집값
+      - 분양
+      - 재건축
+      - 금리
+      - 환율
+      - 달러
+      - 원화
+      - 기준금리
+      - 채권
+      - 국채
+      - 연준
+      - FOMC
     sources:
       - type: rss
         url: https://www.hankyung.com/feed/economy
@@ -34,6 +60,12 @@ categories:
         url: https://www.yna.co.kr/economy/rss.xml
         label: 연합뉴스_경제
         crawl_body: true
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%ED%95%9C%EA%B5%AD%EA%B2%BD%EC%A0%9C%20OR%20%EA%B2%BD%EC%A0%9C%EC%A0%95%EC%B1%85%20OR%20%EC%86%8C%EB%B9%84%EC%9E%90%EB%AC%BC%EA%B0%80%20OR%20%EC%88%98%EC%B6%9C%20OR%20%EB%AC%B4%EC%97%AD%EC%88%98%EC%A7%80&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_경제
+        crawl_body: true
+        limit: 8
 
   # ── 부동산 ───────────────────────────────────────────────
   - name: 부동산
@@ -53,6 +85,12 @@ categories:
         label: 연합뉴스_부동산
         crawl_body: true
 
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EB%B6%80%EB%8F%99%EC%82%B0%20OR%20%EC%95%84%ED%8C%8C%ED%8A%B8%20OR%20%EC%A0%84%EC%84%B8%20OR%20%EC%A7%91%EA%B0%92%20OR%20%EB%B6%84%EC%96%91&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_부동산
+        crawl_body: true
+        limit: 8
+
   # ── 주식 ─────────────────────────────────────────────────
   - name: 주식
     sources:
@@ -70,6 +108,12 @@ categories:
         url: https://www.yna.co.kr/market/rss.xml
         label: 연합뉴스_시장
         crawl_body: true
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EC%A3%BC%EC%8B%9D%20OR%20%EC%BD%94%EC%8A%A4%ED%94%BC%20OR%20%EC%BD%94%EC%8A%A4%EB%8B%A5%20OR%20%EC%A6%9D%EC%8B%9C%20OR%20%EC%8B%A4%EC%A0%81%20OR%20%ED%8A%B9%EC%A7%95%EC%A3%BC&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_주식
+        crawl_body: true
+        limit: 8
 
   # ── 금리/환율 ─────────────────────────────────────────────
   # ✅ keyword_filter: 제목에 이 단어 중 하나라도 있는 기사만 수집
@@ -118,6 +162,12 @@ categories:
         label: 한국은행
         crawl_body: true
         limit: 5
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EA%B8%88%EB%A6%AC%20OR%20%ED%99%98%EC%9C%A8%20OR%20%EA%B8%B0%EC%A4%80%EA%B8%88%EB%A6%AC%20OR%20%EC%97%B0%EC%A4%80%20OR%20FOMC%20OR%20%EC%9B%90%EB%8B%AC%EB%9F%AC&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_금리환율
+        crawl_body: true
+        limit: 8
 
   # ── 네이버 금융 ───────────────────────────────────────────
   # ✅ type: naver_finance 로 HTML 파싱 + 네이버뉴스 URL 자동 변환
