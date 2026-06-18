@@ -283,7 +283,7 @@ categories:
         crawl_body: true
 
   # ── 자기계발 ─────────────────────────────────────────────
-  # Google News 검색형 RSS + 생산성/습관 전문 RSS.
+  # 국내 사용자가 바로 적용하기 좋은 생산성·습관·커리어 정보 중심.
   - name: 자기계발
     keyword_filter:
       - 자기계발
@@ -300,23 +300,6 @@ categories:
       - 커리어
       - 독서
       - 멘토링
-      - habit
-      - habits
-      - productivity
-      - learning
-      - focus
-      - routine
-      - routines
-      - goal
-      - goals
-      - motivation
-      - career
-      - reading
-      - knowledge
-      - note-taking
-      - creativity
-      - decision
-      - decisions
     sources:
       - type: rss
         url: "https://news.google.com/rss/search?q=%EC%9E%90%EA%B8%B0%EA%B3%84%EB%B0%9C%20OR%20%EC%9E%90%EA%B8%B0%EA%B4%80%EB%A6%AC%20OR%20%EC%83%9D%EC%82%B0%EC%84%B1%20OR%20%EC%8A%B5%EA%B4%80&hl=ko&gl=KR&ceid=KR:ko"
@@ -331,25 +314,10 @@ categories:
         limit: 10
 
       - type: rss
-        url: https://nesslabs.com/feed
-        label: Ness_Labs
+        url: "https://news.google.com/rss/search?q=%EC%BB%A4%EB%A6%AC%EC%96%B4%20OR%20%EC%9D%BC%ED%95%98%EB%8A%94%EB%B2%95%20OR%20%EC%97%85%EB%AC%B4%ED%9A%A8%EC%9C%A8%20OR%20%EB%8F%85%EC%84%9C%EB%B2%95&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_커리어효율
         crawl_body: true
-        keyword_filter: false
-        limit: 8
-
-      - type: rss
-        url: https://jamesclear.com/hi-im-james-clear/feed
-        label: James_Clear
-        crawl_body: true
-        keyword_filter: false
-        limit: 6
-
-      - type: rss
-        url: https://fs.blog/feed/
-        label: Farnam_Street
-        crawl_body: true
-        keyword_filter: false
-        limit: 6
+        limit: 10
 
       - type: rss
         url: https://yozm.wishket.com/magazine/feed/
@@ -357,14 +325,8 @@ categories:
         crawl_body: true
         limit: 8
 
-      - type: rss
-        url: "https://news.google.com/rss/search?q=site:blog.naver.com%20%EC%9E%90%EA%B8%B0%EA%B3%84%EB%B0%9C%20OR%20site:post.naver.com%20%EC%83%9D%EC%82%B0%EC%84%B1%20OR%20site:brunch.co.kr%20%EC%8B%9C%EA%B0%84%EA%B4%80%EB%A6%AC%20OR%20site:tistory.com%20%EB%A3%A8%ED%8B%B4&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_국내자기계발
-        crawl_body: true
-        limit: 8
-
   # ── 심리 ─────────────────────────────────────────────────
-  # 심리학·정신건강·관계·감정관리 이슈를 영상 소재로 쓰기 위한 RSS.
+  # 국내 기사·건강정보 중심의 심리·정신건강·관계 소재.
   - name: 심리
     keyword_filter:
       - 심리
@@ -382,23 +344,6 @@ categories:
       - 상담
       - 명상
       - 마음챙김
-      - psychology
-      - mental health
-      - anxiety
-      - stress
-      - burnout
-      - depression
-      - emotion
-      - emotions
-      - self-esteem
-      - relationship
-      - relationships
-      - therapy
-      - mindfulness
-      - meditation
-      - happiness
-      - well-being
-      - wellbeing
     sources:
       - type: rss
         url: "https://news.google.com/rss/search?q=%EC%8B%AC%EB%A6%AC%ED%95%99%20OR%20%EC%A0%95%EC%8B%A0%EA%B1%B4%EA%B0%95%20OR%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95%20OR%20%EC%8A%A4%ED%8A%B8%EB%A0%88%EC%8A%A4&hl=ko&gl=KR&ceid=KR:ko"
@@ -413,28 +358,14 @@ categories:
         limit: 10
 
       - type: rss
-        url: https://www.psychologytoday.com/us/front/feed
-        label: Psychology_Today
+        url: "https://news.google.com/rss/search?q=%EC%83%81%EB%8B%B4%20OR%20%EB%AA%85%EC%83%81%20OR%20%EB%A7%88%EC%9D%8C%EC%B1%99%EA%B9%80%20OR%20%EA%B4%80%EA%B3%84%ED%9A%8C%EB%B3%B5&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_상담명상
         crawl_body: true
-        keyword_filter: false
-        limit: 8
-
-      - type: rss
-        url: https://greatergood.berkeley.edu/site/rss/articles
-        label: Greater_Good
-        crawl_body: true
-        keyword_filter: false
-        limit: 6
+        limit: 10
 
       - type: rss
         url: https://cdn.news.hidoc.co.kr/rss/gns_allArticle.xml
         label: 하이닥
-        crawl_body: true
-        limit: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=site:blog.naver.com%20%EC%8B%AC%EB%A6%AC%20OR%20site:post.naver.com%20%EB%B6%88%EC%95%88%20OR%20site:brunch.co.kr%20%EB%B2%88%EC%95%84%EC%9B%83%20OR%20site:tistory.com%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_국내심리
         crawl_body: true
         limit: 8
 
@@ -454,39 +385,18 @@ categories:
       - 습관
       - 심리학
       - 뇌과학
-      - neuroscience
-      - psychology
-      - cognitive
-      - cognition
-      - decision
-      - decisions
-      - behavior
-      - behaviour
-      - behavioral
-      - behavioural
-      - motivation
-      - learning
-      - memory
-      - attention
-      - habit
-      - habits
-      - self-control
-      - bias
-      - biases
     sources:
       - type: rss
-        url: https://www.psypost.org/feed/
-        label: PsyPost
+        url: "https://news.google.com/rss/search?q=%ED%96%89%EB%8F%99%EA%B3%BC%ED%95%99%20OR%20%ED%96%89%EB%8F%99%EA%B2%BD%EC%A0%9C%ED%95%99%20OR%20%EC%9D%98%EC%82%AC%EA%B2%B0%EC%A0%95%20OR%20%EC%9D%B8%EC%A7%80%ED%8E%B8%ED%96%A5&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_행동과학
         crawl_body: true
-        keyword_filter: false
-        limit: 8
+        limit: 10
 
       - type: rss
-        url: https://www.psychologicalscience.org/news/releases/feed
-        label: APS_Releases
+        url: "https://news.google.com/rss/search?q=%EB%87%8C%EA%B3%BC%ED%95%99%20OR%20%EA%B8%B0%EC%96%B5%20OR%20%EC%A3%BC%EC%9D%98%EB%A0%A5%20OR%20%ED%95%99%EC%8A%B5%EB%B2%95&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_뇌과학학습
         crawl_body: true
-        keyword_filter: false
-        limit: 6
+        limit: 10
 
   # # ── 정책/규제 (필요 시 주석 해제) ───────────────────────
   # - name: 정책/규제
