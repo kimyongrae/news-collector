@@ -74,6 +74,23 @@ BODY_ERROR_PATTERNS = [
     "Page Not Found",
 ]
 
+BLOG_SOURCE_DOMAINS = (
+    "blog.naver.com",
+    "m.blog.naver.com",
+    "post.naver.com",
+    "m.post.naver.com",
+    "brunch.co.kr",
+    "tistory.com",
+)
+
+BLOG_SOURCE_HINTS = (
+    "네이버 블로그",
+    "네이버 포스트",
+    "브런치",
+    "티스토리",
+    "blog",
+)
+
 def is_body_error(text: str) -> bool:
     """본문이 에러 페이지 내용인지 확인"""
     if not text:
@@ -82,6 +99,25 @@ def is_body_error(text: str) -> bool:
         if pat in text:
             return True
     return False
+
+
+def _entry_source_text(entry) -> str:
+    src = entry.get("source") or {}
+    if isinstance(src, dict):
+        return " ".join(str(src.get(k) or "") for k in ("title", "href", "url"))
+    return str(src or "")
+
+
+def is_blog_source(url: str = "", source_text: str = "", media: str = "") -> bool:
+    """블로그/UGC성 출처는 RSS 수집 대상에서 제외."""
+    hay = f"{url} {source_text} {media}".lower()
+    try:
+        host = urlparse(url).netloc.lower()
+    except Exception:
+        host = ""
+    if any(domain in host or domain in hay for domain in BLOG_SOURCE_DOMAINS):
+        return True
+    return any(hint.lower() in hay for hint in BLOG_SOURCE_HINTS)
 
 
 # ── OAuth 인증 ───────────────────────────────────────────────
@@ -843,6 +879,11 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None, exc
             if not title:
                 continue
 
+            link = e.get("link", "")
+            source_text = _entry_source_text(e)
+            if is_blog_source(link, source_text, media):
+                continue
+
             # ✅ 키워드 필터
             if keyword_filter:
                 title_norm = title.lower()
@@ -868,8 +909,6 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None, exc
             ).get_text()[:1800]
             # ✅ RSS summary도 정제
             rss_text = clean_body(rss_text)
-
-            link = e.get("link", "")
 
             # 본문 크롤링 (RSS summary 짧거나 없을 때)
             if crawl_body and len(rss_text.strip()) < 100 and link:
