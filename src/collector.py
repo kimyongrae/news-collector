@@ -120,6 +120,13 @@ def is_blog_source(url: str = "", source_text: str = "", media: str = "") -> boo
     return any(hint.lower() in hay for hint in BLOG_SOURCE_HINTS)
 
 
+def keyword_match(text: str, keywords) -> bool:
+    if not keywords:
+        return True
+    hay = (text or "").lower()
+    return any(str(kw).lower() in hay for kw in keywords)
+
+
 # ── OAuth 인증 ───────────────────────────────────────────────
 def get_clients():
     """GOOGLE_OAUTH_TOKEN (JSON 문자열) 으로 gspread / drive 클라이언트 생성.
@@ -476,10 +483,16 @@ def update_index_sheet(sp, month_label: str, count: int, collected_at: str):
     )
     print(f"[INDEX 추가] {month_label} → {count}건")
 
-def load_title_set(ws):
-    """월탭의 제목(B열=col 2) 전체를 메모리에 로드해 중복 방지용 세트 반환"""
-    vals = ws.col_values(TITLE_COL)
-    return set(v.strip() for v in vals[1:] if v.strip())
+def load_title_sets_by_category(ws):
+    """월탭의 기존 제목을 카테고리별로 로드해 중복 방지용 세트 반환"""
+    rows = ws.get_all_values()
+    title_sets = {}
+    for row in rows[1:]:
+        category = row[2].strip() if len(row) > 2 else ""
+        title = row[TITLE_COL - 1].strip() if len(row) >= TITLE_COL else ""
+        if category and title:
+            title_sets.setdefault(category, set()).add(title)
+    return title_sets
 
 
 # ── 기사 본문 크롤링 ─────────────────────────────────────────
@@ -871,6 +884,7 @@ def fetch_rss(
     keyword_filter=None,
     exclude_keyword_filter=None,
     scan_multiplier=3,
+    keyword_match_fields="title",
 ):
     """
     RSS 파싱. summary 짧으면 기사 직접 크롤링.
@@ -893,16 +907,6 @@ def fetch_rss(
             if is_blog_source(link, source_text, media):
                 continue
 
-            # ✅ 키워드 필터
-            if keyword_filter:
-                title_norm = title.lower()
-                if not any(str(kw).lower() in title_norm for kw in keyword_filter):
-                    continue
-            if exclude_keyword_filter:
-                title_norm = title.lower()
-                if any(str(kw).lower() in title_norm for kw in exclude_keyword_filter):
-                    continue
-
             pub = ""
             for f in ("published", "updated", "created"):
                 raw = e.get(f, "")
@@ -918,6 +922,18 @@ def fetch_rss(
             ).get_text()[:1800]
             # ✅ RSS summary도 정제
             rss_text = clean_body(rss_text)
+
+            fields = set(str(keyword_match_fields or "title").replace(",", " ").split())
+            filter_parts = [title]
+            if "summary" in fields:
+                filter_parts.append(rss_text)
+            if "source" in fields:
+                filter_parts.append(source_text)
+            filter_text = " ".join(filter_parts)
+            if not keyword_match(filter_text, keyword_filter):
+                continue
+            if exclude_keyword_filter and keyword_match(title, exclude_keyword_filter):
+                continue
 
             # 본문 크롤링 (RSS summary 짧거나 없을 때)
             if crawl_body and len(rss_text.strip()) < 100 and link:
@@ -1313,8 +1329,8 @@ def run(config_path="config/categories.yaml"):
     # ── 월별 탭 가져오기 (없으면 자동 생성) ──────────────────
     ws = get_or_create_monthly_worksheet(sp, month_label)
 
-    # ── 월탭의 기존 제목 세트 로드 (중복 방지) ───────────────
-    global_title_set = load_title_set(ws)
+    # ── 월탭의 기존 제목 세트 로드 (카테고리별 중복 방지) ─────
+    title_sets_by_category = load_title_sets_by_category(ws)
 
     total    = 0
     fmt_reqs = []
@@ -1359,7 +1375,7 @@ def run(config_path="config/categories.yaml"):
                 rank_val,               # K 순위 (랭킹 페이지만 숫자)
                 views_cell,             # L 조회수 (랭킹 페이지에서 추출 성공 시)
             ])
-            global_title_set.add(art["title"])
+            title_sets_by_category.setdefault(cat_name, set()).add(art["title"])
             total += 1
             rank_tag = f"#{rank_val}" if rank_val else ""
             view_tag = f"조회 {views_val}" if views_val else ""
@@ -1405,7 +1421,7 @@ def run(config_path="config/categories.yaml"):
 
         print(f"\n▶ [{cat_name}] {len(sources)}개 소스")
 
-        cat_title_set = set()   # 카테고리 내 중복 방지
+        cat_title_set = set(title_sets_by_category.get(cat_name, set()))
         pending_batch = []      # AI 배치 대기열
 
         for src in sources:
@@ -1432,6 +1448,10 @@ def run(config_path="config/categories.yaml"):
                         keyword_filter=src_keyword_filter,
                         exclude_keyword_filter=src_exclude_keyword_filter,
                         scan_multiplier=src.get("scan_multiplier", 3),
+                        keyword_match_fields=src.get(
+                            "keyword_match_fields",
+                            cat.get("keyword_match_fields", "title"),
+                        ),
                     )
                 elif src_type == "web":
                     arts = fetch_web(src_url, src.get("selectors", {}), src_label, src_limit)
@@ -1445,7 +1465,7 @@ def run(config_path="config/categories.yaml"):
             # 중복 필터링 후 배치에 추가
             for art in arts:
                 t = art["title"].strip()
-                if not t or t in global_title_set or t in cat_title_set:
+                if not t or t in cat_title_set:
                     continue
                 cat_title_set.add(t)
                 pending_batch.append(art)

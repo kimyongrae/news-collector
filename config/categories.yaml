@@ -326,65 +326,152 @@ categories:
         limit: 8
 
   # ── 심리 ─────────────────────────────────────────────────
-  # 국내 기사·건강정보 중심의 심리·정신건강·관계 소재.
+  # 한국 블로그/유튜브 소재화가 쉬운 정신건강·마음회복·관계관리 중심.
   - name: 심리
     keyword_filter:
-      - 심리
       - 심리학
+      - 심리상담
       - 정신건강
       - 마음건강
-      - 불안
-      - 스트레스
+      - 마음건강지원센터
+      - 정신건강복지센터
+      - 생명존중
+      - 우울증
+      - 불안장애
       - 번아웃
-      - 우울
-      - 감정
+      - 감정조절
+      - 스트레스 관리
       - 자존감
-      - 관계
       - 대인관계
-      - 상담
+      - 인간관계 심리
+      - 관계 회복
       - 명상
       - 마음챙김
+    exclude_keyword_filter:
+      - 금융
+      - 금리
+      - 환율
+      - 고환율
+      - 한국은행
+      - 한은
+      - 자본
+      - 반도체
+      - 공급망
+      - 집값
+      - 빚투
+      - 금융시스템
+      - 고객관리
+      - 중소기업
+      - AX
+      - 투자
+      - 시장
+      - 급락
+      - 응급실
+      - 가중 처벌
+      - 콜센터
+      - AI시스템
+      - AI 챗봇
+      - 기술 적용
+      - 에이전트
+      - 수출
+      - 세무상담
+      - 건설기술
+      - 전화상담
+      - 안보불안
+      - 수해
+      - 옹벽
+      - 영양제
+      - 필로폰
+      - 주민
+      - 노동자
+      - 홈플러스
+      - LG유플러스
+      - 플랫폼
+      - AI 도입
+      - 트럼프
+      - 이란
+      - 거래의 기술
+      - 선거
+      - 대통령
+      - 국회
+      - 검찰
+      - 경찰
+      - 전쟁
+      - 이스라엘
+      - 증시
+      - 주가
+      - 코스피
+      - 부동산
+      - 분양
+      - 재건축
+      - 의료파업
+      - 의대
+      - 콜센터
+      - 고객센터
+      - 수출상담
+      - 행사
+      - 업무협약
+      - MOU
+      - 직원 연수회
+      - AI 교육
+      - 중고생
+      - 공부
+      - 출산 의지
+      - 장애인
+      - 참여자
+      - 운영
     sources:
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%8B%AC%EB%A6%AC%ED%95%99%20OR%20%EC%A0%95%EC%8B%A0%EA%B1%B4%EA%B0%95%20OR%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95%20OR%20%EC%8A%A4%ED%8A%B8%EB%A0%88%EC%8A%A4&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_심리건강
+        url: "https://news.google.com/rss/search?q=%EC%A0%95%EC%8B%A0%EA%B1%B4%EA%B0%95%20OR%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95%20OR%20%EC%8B%AC%EB%A6%AC%EC%83%81%EB%8B%B4%20OR%20%EB%A7%88%EC%9D%8C%EA%B1%B4%EA%B0%95%EC%A7%80%EC%9B%90%EC%84%BC%ED%84%B0%20OR%20%EC%A0%95%EC%8B%A0%EA%B1%B4%EA%B0%95%EB%B3%B5%EC%A7%80%EC%84%BC%ED%84%B0&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_정신건강회복
         crawl_body: true
         limit: 12
+        scan_multiplier: 6
 
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%9E%90%EC%A1%B4%EA%B0%90%20OR%20%EB%B2%88%EC%95%84%EC%9B%83%20OR%20%EB%B6%88%EC%95%88%20OR%20%EA%B0%90%EC%A0%95%EA%B4%80%EB%A6%AC%20OR%20%EB%8C%80%EC%9D%B8%EA%B4%80%EA%B3%84&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_감정관계
+        url: "https://news.google.com/rss/search?q=%EC%9A%B0%EC%9A%B8%EC%A6%9D%20OR%20%EB%B6%88%EC%95%88%EC%9E%A5%EC%95%A0%20OR%20%EB%B2%88%EC%95%84%EC%9B%83%20OR%20%EA%B0%90%EC%A0%95%EC%A1%B0%EC%A0%88%20OR%20%EC%8A%A4%ED%8A%B8%EB%A0%88%EC%8A%A4%20%EA%B4%80%EB%A6%AC&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_우울불안번아웃
         crawl_body: true
-        limit: 10
+        limit: 8
+        scan_multiplier: 6
 
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%83%81%EB%8B%B4%20OR%20%EB%AA%85%EC%83%81%20OR%20%EB%A7%88%EC%9D%8C%EC%B1%99%EA%B9%80%20OR%20%EA%B4%80%EA%B3%84%ED%9A%8C%EB%B3%B5&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_상담명상
+        url: "https://news.google.com/rss/search?q=%EC%9E%90%EC%A1%B4%EA%B0%90%20OR%20%EB%8C%80%EC%9D%B8%EA%B4%80%EA%B3%84%20OR%20%EC%9D%B8%EA%B0%84%EA%B4%80%EA%B3%84%20%EC%8B%AC%EB%A6%AC%20OR%20%EA%B4%80%EA%B3%84%20%ED%9A%8C%EB%B3%B5%20OR%20%EB%A7%88%EC%9D%8C%EC%B1%99%EA%B9%80&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_자존감관계
         crawl_body: true
-        limit: 10
+        limit: 6
+        scan_multiplier: 6
 
       - type: rss
         url: https://cdn.news.hidoc.co.kr/rss/gns_allArticle.xml
-        label: 하이닥
+        label: 하이닥_심리건강
         crawl_body: true
-        limit: 8
+        limit: 6
+        scan_multiplier: 8
 
   # ── 연애심리 ─────────────────────────────────────────────
-  # 한국어 뉴스·건강정보 RSS 중심. 네이버 블로그/포스트·브런치·티스토리는 수집기에서 제외.
+  # 한국 블로그/유튜브용 관계 소재: 연애·데이트·고백·관계 심리 + 애착·갈등·이별·부부·안전경고 중심.
   - name: 연애심리
     keyword_filter:
-      - 연애
       - 연애심리
+      - 연애
+      - 연애 상담
       - 연인
       - 커플
-      - 사랑
+      - 커플심리
+      - 사랑 심리
       - 로맨스
+      - 로맨스 심리
       - 데이트
+      - 데이트 심리
       - 소개팅
       - 첫만남
       - 호감
-      - 플러팅
       - 고백
+      - 고백 심리
+      - 관계
+      - 관계 심리
+      - 플러팅
       - 짝사랑
       - 썸남
       - 썸녀
@@ -395,80 +482,109 @@ categories:
       - 애착유형
       - 회피형
       - 불안형
-      - 관계
       - 권태기
       - 결혼
       - 부부
       - 배우자
+      - 부부갈등
+      - 부부 관계
       - 가스라이팅
       - 데이트폭력
       - 로맨스스캠
+      - 로맨스 스캠
       - 연애사기
+      - 소개팅 앱 사기
       - 커플상담
       - 부부상담
+      - 나르시시스트 연애
+    exclude_keyword_filter:
+      - 생동성
+      - 임상시험
+      - 주사
+      - 알바
+      - 아나운서
+      - 샘 해밍턴
+      - 스타이슈
+      - 에토미데이트
+      - 의료용 마약류
+      - 연예인
+      - 아이돌
+      - 배우
+      - 가수
+      - 드라마
+      - 영화
+      - 예능
+      - 방송
+      - 출연
+      - 개봉
+      - 포스터
+      - 앨범
+      - 팬미팅
+      - 웹툰
+      - 작가
+      - 게임
+      - 스포츠
+      - 광고
+      - 화보
+      - 열애설
+      - 공개 열애
+      - 결별설
+      - 로맨스 드라마
+      - 로맨스 영화
+      - 신랑수업
+      - 돌싱글즈
+      - 김일우
+      - 박선영
+      - 제롬
+      - 베니타
+      - 이호선
+      - 이호선상담소
+      - 텐아시아
+      - TopStarNews
+      - Channel A
+      - 눈물
     sources:
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EB%A1%9C%EB%A7%A8%EC%8A%A4%20OR%20%EC%97%B0%EC%95%A0%EC%8B%AC%EB%A6%AC%20OR%20%EC%82%AC%EB%9E%91%20%EC%8B%AC%EB%A6%AC%20OR%20%ED%98%B8%EA%B0%90%20%EC%8B%A0%ED%98%B8%20OR%20%ED%94%8C%EB%9F%AC%ED%8C%85%20OR%20%EC%8D%B8&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_로맨스연애
-        crawl_body: true
-        limit: 15
-        scan_multiplier: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=%EB%8D%B0%EC%9D%B4%ED%8A%B8%20OR%20%EC%86%8C%EA%B0%9C%ED%8C%85%20OR%20%EC%B2%AB%EB%A7%8C%EB%82%A8%20OR%20%EA%B3%A0%EB%B0%B1%20OR%20%EC%A7%9D%EC%82%AC%EB%9E%91%20OR%20%EC%8D%B8%EB%82%A8%20OR%20%EC%8D%B8%EB%85%80&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_데이트소개팅
-        crawl_body: true
-        limit: 12
-        scan_multiplier: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%BB%A4%ED%94%8C%20%EA%B4%80%EA%B3%84%20OR%20%EA%B6%8C%ED%83%9C%EA%B8%B0%20OR%20%EC%97%B0%EC%9D%B8%20%EA%B0%88%EB%93%B1%20OR%20%EA%B4%80%EA%B3%84%20%ED%9A%8C%EB%B3%B5%20OR%20%EC%BB%A4%ED%94%8C%20%EC%83%81%EB%8B%B4%20OR%20%EC%97%B0%EC%95%A0%20%EC%83%81%EB%8B%B4&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_커플관계회복
-        crawl_body: true
-        limit: 12
-        scan_multiplier: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=%EA%B2%B0%ED%98%BC%20%EC%8B%AC%EB%A6%AC%20OR%20%EB%B6%80%EB%B6%80%20%EA%B4%80%EA%B3%84%20OR%20%EB%B0%B0%EC%9A%B0%EC%9E%90%20%EA%B0%88%EB%93%B1%20OR%20%EB%B6%80%EB%B6%80%20%EC%83%81%EB%8B%B4%20OR%20%EC%8B%A0%ED%98%BC%EB%B6%80%EB%B6%80%20%EA%B0%88%EB%93%B1&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_결혼부부관계
-        crawl_body: true
-        limit: 10
-        scan_multiplier: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=%EB%A1%9C%EB%A7%A8%EC%8A%A4%20%EC%8A%A4%EC%BA%A0%20OR%20%EC%97%B0%EC%95%A0%20%EC%82%AC%EA%B8%B0%20OR%20%EB%8D%B0%EC%9D%B4%ED%8A%B8%20%EC%95%B1%20%EC%82%AC%EA%B8%B0%20OR%20%EC%86%8C%EA%B0%9C%ED%8C%85%20%EC%95%B1%20%EC%82%AC%EA%B8%B0%20OR%20%EA%B0%80%EC%8A%A4%EB%9D%BC%EC%9D%B4%ED%8C%85%20%EC%97%B0%EC%95%A0&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_로맨스스캠
+        url: "https://news.google.com/rss/search?q=%EC%97%B0%EC%95%A0%20OR%20%EB%8D%B0%EC%9D%B4%ED%8A%B8%20%EC%8B%AC%EB%A6%AC%20OR%20%EA%B3%A0%EB%B0%B1%20%EC%8B%AC%EB%A6%AC%20OR%20%EA%B4%80%EA%B3%84%20%EC%8B%AC%EB%A6%AC%20OR%20%EB%A1%9C%EB%A7%A8%EC%8A%A4%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%97%B0%EC%95%A0%20%EC%83%81%EB%8B%B4&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_연애데이트고백
         crawl_body: true
         limit: 8
-        scan_multiplier: 8
+        scan_multiplier: 12
 
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%97%B0%EC%95%A0%EC%8B%AC%EB%A6%AC%20OR%20%EC%97%B0%EC%95%A0%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%97%B0%EC%9D%B8%20%EA%B4%80%EA%B3%84%20OR%20%EC%BB%A4%ED%94%8C%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%82%AC%EB%9E%91%20%EC%8B%AC%EB%A6%AC&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_연애관계
-        crawl_body: true
-        limit: 15
-        scan_multiplier: 8
-
-      - type: rss
-        url: "https://news.google.com/rss/search?q=%EC%9D%B4%EB%B3%84%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%9E%AC%ED%9A%8C%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%95%A0%EC%B0%A9%EC%9C%A0%ED%98%95%20OR%20%ED%9A%8C%ED%94%BC%ED%98%95%20%EC%97%B0%EC%95%A0%20OR%20%EB%B6%88%EC%95%88%ED%98%95%20%EC%95%A0%EC%B0%A9&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_이별애착
+        url: "https://news.google.com/rss/search?q=%EC%95%A0%EC%B0%A9%EC%9C%A0%ED%98%95%20OR%20%ED%9A%8C%ED%94%BC%ED%98%95%20%EC%97%B0%EC%95%A0%20OR%20%EB%B6%88%EC%95%88%ED%98%95%20%EC%95%A0%EC%B0%A9%20OR%20%EC%97%B0%EC%95%A0%EC%8B%AC%EB%A6%AC%20OR%20%EC%82%AC%EB%9E%91%20%EC%8B%AC%EB%A6%AC&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_애착연애심리
         crawl_body: true
         limit: 12
-        scan_multiplier: 8
+        scan_multiplier: 10
 
       - type: rss
-        url: "https://news.google.com/rss/search?q=%EB%8D%B0%EC%9D%B4%ED%8A%B8%ED%8F%AD%EB%A0%A5%20OR%20%EA%B0%80%EC%8A%A4%EB%9D%BC%EC%9D%B4%ED%8C%85%20%EC%97%B0%EC%95%A0%20OR%20%EC%97%B0%EC%9D%B8%20%EA%B0%88%EB%93%B1%20OR%20%EC%BB%A4%ED%94%8C%20%EC%83%81%EB%8B%B4%20OR%20%EB%B6%80%EB%B6%80%20%EC%83%81%EB%8B%B4&hl=ko&gl=KR&ceid=KR:ko"
-        label: 구글뉴스_연애갈등상담
+        url: "https://news.google.com/rss/search?q=%EC%BB%A4%ED%94%8C%20%EC%83%81%EB%8B%B4%20OR%20%EB%B6%80%EB%B6%80%20%EC%83%81%EB%8B%B4%20OR%20%EA%B6%8C%ED%83%9C%EA%B8%B0%20OR%20%EC%9D%B4%EB%B3%84%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%9E%AC%ED%9A%8C%20%EC%8B%AC%EB%A6%AC&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_갈등이별회복
         crawl_body: true
-        limit: 12
-        scan_multiplier: 8
+        limit: 8
+        scan_multiplier: 10
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EA%B0%80%EC%8A%A4%EB%9D%BC%EC%9D%B4%ED%8C%85%20%EC%97%B0%EC%95%A0%20OR%20%EB%8D%B0%EC%9D%B4%ED%8A%B8%ED%8F%AD%EB%A0%A5%20OR%20%EB%A1%9C%EB%A7%A8%EC%8A%A4%20%EC%8A%A4%EC%BA%A0%20OR%20%EC%97%B0%EC%95%A0%20%EC%82%AC%EA%B8%B0%20OR%20%EC%86%8C%EA%B0%9C%ED%8C%85%20%EC%95%B1%20%EC%82%AC%EA%B8%B0&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_관계안전경고
+        crawl_body: true
+        limit: 10
+        scan_multiplier: 10
+
+      - type: rss
+        url: "https://news.google.com/rss/search?q=%EB%B6%80%EB%B6%80%20%EA%B4%80%EA%B3%84%20OR%20%EB%B0%B0%EC%9A%B0%EC%9E%90%20%EA%B0%88%EB%93%B1%20OR%20%EA%B2%B0%ED%98%BC%20%EC%8B%AC%EB%A6%AC%20OR%20%EC%8B%A0%ED%98%BC%EB%B6%80%EB%B6%80%20%EA%B0%88%EB%93%B1%20OR%20%EB%B6%80%EB%B6%80%20%EA%B0%88%EB%93%B1&hl=ko&gl=KR&ceid=KR:ko"
+        label: 구글뉴스_결혼부부갈등
+        crawl_body: true
+        limit: 8
+        scan_multiplier: 10
 
       - type: rss
         url: https://cdn.news.hidoc.co.kr/rss/gns_allArticle.xml
         label: 하이닥_연애심리
         crawl_body: true
-        limit: 8
-        scan_multiplier: 8
+        limit: 5
+        scan_multiplier: 10
 
   # ── 행동과학 ─────────────────────────────────────────────
   # 인지·의사결정·동기·학습·습관 형성처럼 연구 근거가 있는 심리/자기계발 소재.
