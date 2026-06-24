@@ -863,7 +863,15 @@ def fetch_naver_ranking(section_url: str, label: str, limit: int = 12,
 
 
 # ── RSS 수집 ─────────────────────────────────────────────────
-def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None, exclude_keyword_filter=None):
+def fetch_rss(
+    url,
+    label="",
+    limit=10,
+    crawl_body=True,
+    keyword_filter=None,
+    exclude_keyword_filter=None,
+    scan_multiplier=3,
+):
     """
     RSS 파싱. summary 짧으면 기사 직접 크롤링.
     keyword_filter: 제목에 이 키워드 중 하나 이상 포함된 기사만 수집
@@ -874,7 +882,8 @@ def fetch_rss(url, label="", limit=10, crawl_body=True, keyword_filter=None, exc
         media = label or feed.feed.get("title", url)
         arts  = []
 
-        for e in feed.entries[:limit * 3]:  # 필터링 감안해 여유있게 가져옴
+        scan_count = max(limit, limit * max(int(scan_multiplier or 3), 1))
+        for e in feed.entries[:scan_count]:  # 필터링 감안해 여유있게 가져옴
             title = e.get("title", "").strip()
             if not title:
                 continue
@@ -1422,6 +1431,7 @@ def run(config_path="config/categories.yaml"):
                         crawl_body=src.get("crawl_body", True),
                         keyword_filter=src_keyword_filter,
                         exclude_keyword_filter=src_exclude_keyword_filter,
+                        scan_multiplier=src.get("scan_multiplier", 3),
                     )
                 elif src_type == "web":
                     arts = fetch_web(src_url, src.get("selectors", {}), src_label, src_limit)
