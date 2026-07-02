@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NewsCollector</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">NewsCollector</p>
+          <h1>RSS 수집 · 시황 알림 제어판</h1>
+        </div>
+      </section>
+
+      <form id="settingsForm" class="dashboard-grid">
+        <section class="panel controls">
+          <div class="section-title hero-title">
+            <div>
+              <span>KEYCHAIN</span>
+              <h2>연동 키</h2>
+            </div>
+            <small>빈칸은 기존 값 유지</small>
+          </div>
+
+          <div class="secret-summary">
+            <div>
+              <b>저장 위치</b>
+              <span id="secretStorage">확인 중</span>
+            </div>
+            <div>
+              <b>저장 상태</b>
+              <span id="secretSavedState">확인 중</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="supabase_url">Supabase URL</label>
+              <span id="supabase_url_saved" class="saved-pill">확인 중</span>
+            </div>
+            <div class="secret-input">
+              <input id="supabase_url" name="supabase_url" type="password" autocomplete="off" placeholder="https://xxxx.supabase.co" />
+              <button type="button" class="reveal-secret" data-toggle-secret="supabase_url" aria-label="Supabase URL 보기" title="입력값 보기"></button>
+            </div>
+            <div class="field-actions">
+              <button type="button" class="mini-test" data-test-secret="supabase_url">연결 테스트</button>
+              <span id="supabase_url_result" class="inline-result"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="supabase_service_key">Supabase Service Key</label>
+              <span id="supabase_service_key_saved" class="saved-pill">확인 중</span>
+            </div>
+            <div class="secret-input">
+              <input id="supabase_service_key" name="supabase_service_key" type="password" autocomplete="off" placeholder="news_articles 읽기용 키" />
+              <button type="button" class="reveal-secret" data-toggle-secret="supabase_service_key" aria-label="Supabase Service Key 보기" title="입력값 보기"></button>
+            </div>
+            <div class="field-actions">
+              <button type="button" class="mini-test" data-test-secret="supabase_service_key">연결 테스트</button>
+              <span id="supabase_service_key_result" class="inline-result"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="kakao_access_token">Kakao Access Token</label>
+              <span id="kakao_access_token_saved" class="saved-pill">확인 중</span>
+            </div>
+            <div class="secret-input">
+              <input id="kakao_access_token" name="kakao_access_token" type="password" autocomplete="off" placeholder="카카오톡 나에게 보내기 access token" />
+              <button type="button" class="reveal-secret" data-toggle-secret="kakao_access_token" aria-label="Kakao Access Token 보기" title="입력값 보기"></button>
+            </div>
+            <div class="field-actions">
+              <button type="button" class="mini-test" data-test-secret="kakao_access_token">연결 테스트</button>
+              <span id="kakao_access_token_result" class="inline-result"></span>
+            </div>
+          </div>
+
+          <div class="section-title sub">
+            <h2>Kakao OAuth</h2>
+            <span>code로 access token 발급</span>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="kakao_rest_api_key">Kakao REST API Key</label>
+              <span id="kakao_rest_api_key_saved" class="saved-pill">확인 중</span>
+            </div>
+            <div class="secret-input">
+              <input id="kakao_rest_api_key" name="kakao_rest_api_key" type="password" autocomplete="off" placeholder="카카오 앱 REST API 키" />
+              <button type="button" class="reveal-secret" data-toggle-secret="kakao_rest_api_key" aria-label="Kakao REST API Key 보기" title="입력값 보기"></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="kakao_redirect_uri">Kakao Redirect URI</label>
+              <span id="kakao_redirect_uri_saved" class="saved-pill">확인 중</span>
+            </div>
+            <input id="kakao_redirect_uri" name="kakao_redirect_uri" autocomplete="off" placeholder="https://example.com/oauth/kakao 또는 등록한 Redirect URI" />
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="kakao_client_secret">Kakao Client Secret</label>
+              <span id="kakao_client_secret_saved" class="saved-pill">선택</span>
+            </div>
+            <div class="secret-input">
+              <input id="kakao_client_secret" name="kakao_client_secret" type="password" autocomplete="off" placeholder="사용 설정한 경우에만 입력" />
+              <button type="button" class="reveal-secret" data-toggle-secret="kakao_client_secret" aria-label="Kakao Client Secret 보기" title="입력값 보기"></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="kakao_authorize_url">Kakao Authorization URL</label>
+            <input id="kakao_authorize_url" name="kakao_authorize_url" readonly placeholder="인가 URL 생성 버튼을 누르면 표시됩니다." />
+            <div class="field-actions">
+              <button id="kakaoAuthorizeBtn" type="button" class="mini-test">인가 URL 생성</button>
+              <a id="kakaoAuthorizeLink" class="text-link" href="#" target="_blank" rel="noreferrer">열기</a>
+              <span id="kakao_authorize_result" class="inline-result"></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="kakao_auth_code">Kakao Authorization Code</label>
+            <input id="kakao_auth_code" name="kakao_auth_code" autocomplete="off" placeholder="Redirect URI의 code 파라미터 값" />
+            <div class="field-actions">
+              <button id="kakaoTokenBtn" type="button" class="mini-test">Access Token 발급</button>
+              <span id="kakao_token_result" class="inline-result"></span>
+            </div>
+          </div>
+
+          <div class="actions secret-actions">
+            <button id="saveSecretsBtn" type="button" class="secondary">API 키 저장</button>
+            <button id="testConnectionsBtn" type="button">전체 연결 테스트</button>
+          </div>
+
+          <div id="secretNotice" class="notice">키를 저장하면 이 영역에 저장 결과가 표시됩니다.</div>
+          <div id="connectionResult" class="test-result"></div>
+
+        </section>
+
+        <section class="panel controls">
+          <div class="section-title hero-title">
+            <div>
+              <span>COLLECT & ALERT</span>
+              <h2>RSS 수집 · 알림 설정</h2>
+            </div>
+            <small>시간은 KST 기준</small>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="collect_schedule_times">로컬 자동 실행 시각</label>
+              <input id="collect_schedule_times" name="collect_schedule_times" placeholder="09:07, 16:00" />
+            </div>
+            <div class="field">
+              <label for="collector_config_path">수집 설정 파일</label>
+              <input id="collector_config_path" name="collector_config_path" placeholder="config/categories.yaml" />
+            </div>
+          </div>
+
+          <input id="schedule_times" name="schedule_times" type="hidden" />
+
+          <div class="flow-card">
+            <div>
+              <span class="step-number">1</span>
+              <b>RSS 수집</b>
+              <small>지정한 시각에 최신 뉴스 데이터를 먼저 저장합니다.</small>
+            </div>
+            <div>
+              <span class="step-number">2</span>
+              <b>브리핑 생성</b>
+              <small>중요도와 카테고리 기준으로 최대 기사 수만큼 추립니다.</small>
+            </div>
+            <label class="flow-toggle">
+              <input id="notify_after_collect" type="checkbox" />
+              <span>
+                <b>수집 후 카카오톡 발송</b>
+                <small>체크하면 RSS 수집 직후 브리핑을 카카오톡으로 전송합니다.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="actions secret-actions">
+            <button id="collectBtn" type="button">지금 RSS 수집</button>
+            <span id="collectResult" class="inline-result"></span>
+          </div>
+
+          <div class="section-title sub">
+            <h2>알림 설정</h2>
+            <span>발송 조건</span>
+          </div>
+
+          <div class="field">
+            <label for="headline">브리핑 제목</label>
+            <input id="headline" name="headline" />
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="provider">발송 채널</label>
+              <select id="provider" name="provider">
+                <option value="console">콘솔 테스트</option>
+                <option value="kakao_memo">카카오톡 나에게 보내기</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="lookback_hours">조회 범위</label>
+              <input id="lookback_hours" name="lookback_hours" type="number" min="1" max="168" />
+            </div>
+            <div class="field">
+              <label for="min_importance">최소 중요도</label>
+              <input id="min_importance" name="min_importance" type="number" min="1" max="5" />
+            </div>
+            <div class="field">
+              <label for="max_items">최대 기사</label>
+              <input id="max_items" name="max_items" type="number" min="1" max="30" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>카테고리</label>
+            <div id="categories" class="chips"></div>
+          </div>
+
+          <div class="field">
+            <label>감성</label>
+            <div id="sentiments" class="chips compact"></div>
+          </div>
+
+          <div class="checks">
+            <label><input id="include_ranked" type="checkbox" /> 랭킹 뉴스 우선</label>
+            <label><input id="include_links" type="checkbox" /> 링크 포함</label>
+          </div>
+
+          <div class="actions">
+            <button type="submit">설정 저장</button>
+            <button id="previewBtn" type="button" class="secondary">미리보기</button>
+            <button id="sendBtn" type="button" class="danger">지금 발송</button>
+          </div>
+        </section>
+
+        <section class="workspace-stack">
+          <section class="panel output">
+            <div class="section-title hero-title">
+              <div>
+                <span>BRIEFING</span>
+                <h2>미리보기</h2>
+              </div>
+            </div>
+            <div class="status">
+              <span id="sourceStatus">Supabase 확인 중</span>
+              <span id="kakaoStatus">Kakao 확인 중</span>
+            </div>
+            <pre id="preview">미리보기를 실행하면 브리핑 내용이 여기에 표시됩니다.</pre>
+          </section>
+
+          <section class="panel logs">
+            <div class="section-title hero-title">
+              <div>
+                <span>HISTORY</span>
+                <h2>최근 발송</h2>
+              </div>
+            </div>
+            <div id="logs"></div>
+          </section>
+        </section>
+      </form>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

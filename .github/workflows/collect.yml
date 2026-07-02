@@ -12,9 +12,9 @@ on:
   #
   # 이전 설정 "0 0 * * *" (UTC 00:00 = KST 09:00) 는 **정시 정각**이라
   # 부하가 몰려 실행이 건너뛰어지는 경우가 잦았습니다.
-  # 아래는 KST 09:07 (UTC 00:07) 로 이동 — 정시를 피하고 9시 직후에 실행.
+  # 아래는 KST 10:07 (UTC 01:07) 로 이동 — 정시를 피하고 10시 직후에 실행.
   schedule:
-    - cron: "7 0 * * *"
+    - cron: "7 1 * * *"
 
   # 수동 실행 (Actions 탭 → Run workflow) 및 디버깅용
   workflow_dispatch:
@@ -63,6 +63,7 @@ jobs:
           GDRIVE_FOLDER_ID:     ${{ secrets.GDRIVE_FOLDER_ID }}
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          KAKAO_ACCESS_TOKEN:   ${{ secrets.KAKAO_ACCESS_TOKEN }}
         run: |
           echo "--- 시크릿 점검 (값은 출력하지 않음) ---"
           if [ -z "$GOOGLE_OAUTH_TOKEN" ]; then
@@ -85,6 +86,11 @@ jobs:
           else
             echo "✅ Supabase 설정됨"
           fi
+          if [ -z "$KAKAO_ACCESS_TOKEN" ]; then
+            echo "ℹ️  KAKAO_ACCESS_TOKEN 미설정 — 카카오 발송 단계는 실패할 수 있음"
+          else
+            echo "✅ KAKAO_ACCESS_TOKEN 설정됨"
+          fi
 
       - name: 📰 뉴스 수집 실행
         env:
@@ -103,6 +109,17 @@ jobs:
           CONFIG="${{ github.event.inputs.config_path || 'config/categories.yaml' }}"
           echo "--- 실행: python src/collector.py $CONFIG ---"
           python src/collector.py "$CONFIG"
+
+      - name: 💬 카카오 시황 발송
+        env:
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
+          KAKAO_ACCESS_TOKEN:    ${{ secrets.KAKAO_ACCESS_TOKEN }}
+          PYTHONUNBUFFERED:      "1"
+          TZ:                    "Asia/Seoul"
+        run: |
+          echo "--- 실행: python send_once.py ---"
+          python send_once.py
 
       # ─────────────────────────────────────────────────────
       # 60일 무커밋 시 GitHub 가 schedule 을 자동 비활성화하므로
