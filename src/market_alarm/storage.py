@@ -13,7 +13,7 @@ DEFAULT_SETTINGS = {
     "schedule_times": ["10:17"],
     "lookback_hours": 24,
     "min_importance": 4,
-    "max_items": 10,
+    "max_items": 8,
     "categories": ["경제", "주식", "금리/환율", "네이버금융", "많이본뉴스_경제", "많이본뉴스_IT", "IT/산업"],
     "sentiments": ["긍정", "부정", "중립"],
     "include_ranked": True,

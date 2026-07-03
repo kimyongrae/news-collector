@@ -46,7 +46,7 @@ class KakaoMemoNotifier:
             text,
             articles_per_message=self.articles_per_message,
             max_articles=self.max_articles,
-            limit=self.max_text_length,
+            limit=self.max_text_length - 8,
         )
         sent_count = 0
         for idx, chunk in enumerate(chunks, 1):
@@ -131,41 +131,104 @@ def _split_kakao_digest(
     if not text:
         return [""]
 
-    blocks = [block.strip() for block in re.split(r"\n{2,}", text) if block.strip()]
-    header_blocks: list[str] = []
-    article_blocks: list[str] = []
-    for block in blocks:
-        if re.match(r"^\d+\.\s", block):
-            article_blocks.append(block)
-        elif not article_blocks and block != "[중요 뉴스]":
-            header_blocks.append(block)
+    header_blocks, article_blocks = _parse_digest_blocks(text)
 
     if not article_blocks:
         return _split_kakao_text(text, limit)
 
     selected = article_blocks[:max_articles]
-    headline = header_blocks[0] if header_blocks else "[시황 브리핑]"
-    meta = header_blocks[1:3]
+    header_lines = _header_lines(header_blocks)
+    headline = header_lines[0] if header_lines else "[시황 브리핑]"
+    meta = _kakao_digest_meta(header_lines[1:], selected)
     chunks: list[str] = []
 
     for start in range(0, len(selected), articles_per_message):
         group = selected[start:start + articles_per_message]
         end_num = start + len(group)
-        parts = [
-            headline,
-            f"[중요 뉴스 {start + 1}-{end_num}/{len(selected)}]",
-        ]
-        if start == 0 and meta:
-            parts.extend(_compact(line, 85) for line in meta)
-        parts.append("")
-        parts.extend(_compact_kakao_article(block) for block in group)
-        chunk = "\n\n".join(part for part in parts if part != "")
-        chunks.append(_trim_preserve_lines(chunk, limit))
+        parts = []
+        if start == 0:
+            header = "\n".join([headline, *(_compact(line, 85) for line in meta)])
+            parts.append(header)
+        parts.append(f"[중요 뉴스 {start + 1}-{end_num}/{len(selected)}]")
+        chunks.append(_render_kakao_chunk(parts, group, limit))
 
     return chunks
 
 
-def _compact_kakao_article(block: str) -> str:
+def _parse_digest_blocks(text: str) -> tuple[list[str], list[str]]:
+    header_lines: list[str] = []
+    article_blocks: list[str] = []
+    current_article: list[str] = []
+
+    for raw_line in (text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line == "[중요 뉴스]":
+            continue
+        if re.match(r"^\d+\.\s", line):
+            if current_article:
+                article_blocks.append("\n".join(current_article))
+            current_article = [line]
+            continue
+        if current_article:
+            current_article.append(line)
+        elif not article_blocks:
+            header_lines.append(line)
+
+    if current_article:
+        article_blocks.append("\n".join(current_article))
+    return header_lines, article_blocks
+
+
+def _header_lines(header_blocks: list[str]) -> list[str]:
+    lines: list[str] = []
+    for block in header_blocks:
+        for line in block.splitlines():
+            line = line.strip()
+            if line:
+                lines.append(line)
+    return lines
+
+
+def _kakao_digest_meta(meta: list[str], selected: list[str]) -> list[str]:
+    category_counts: dict[str, int] = {}
+    for block in selected:
+        match = re.match(r"^\d+\.\s+\[([^/\]]+)", block)
+        if match:
+            category = match.group(1).strip()
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+    result = list(meta)
+    if category_counts:
+        category_text = ", ".join(f"{name} {count}건" for name, count in category_counts.items())
+        result = [line for line in result if not line.startswith("주요 카테고리:")]
+        result.insert(0, f"주요 카테고리: {category_text}")
+    return result[:2]
+
+
+def _render_kakao_chunk(prefix_parts: list[str], article_blocks: list[str], limit: int) -> str:
+    attempts = [
+        (66, 42),
+        (58, 30),
+        (50, 0),
+        (42, 0),
+    ]
+    fallback = ""
+    for title_limit, summary_limit in attempts:
+        parts = list(prefix_parts)
+        parts.extend(
+            _compact_kakao_article(block, title_limit, summary_limit)
+            for block in article_blocks
+        )
+        chunk = "\n\n".join(part for part in parts if part != "")
+        fallback = chunk
+        if len(chunk) <= limit:
+            return chunk
+    return _trim_preserve_urls(fallback, limit)
+
+
+def _compact_kakao_article(block: str, title_limit: int = 66, summary_limit: int = 42) -> str:
     title = ""
     summary = ""
     url = ""
@@ -182,9 +245,9 @@ def _compact_kakao_article(block: str) -> str:
 
     parts = []
     if title:
-        parts.append(_compact(title, 92))
-    if summary:
-        parts.append(_compact(summary, 58))
+        parts.append(_compact(title, title_limit))
+    if summary and summary_limit > 0:
+        parts.append(_compact(summary, summary_limit))
     if url:
         parts.append(url)
     return "\n".join(parts)
@@ -239,6 +302,25 @@ def _trim_preserve_lines(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
+
+
+def _trim_preserve_urls(text: str, limit: int) -> str:
+    lines = [line for line in (text or "").strip().splitlines() if line.strip()]
+    kept: list[str] = []
+    current_len = 0
+    for line in lines:
+        line_len = len(line) + (2 if kept else 0)
+        if current_len + line_len <= limit:
+            kept.append(line)
+            current_len += line_len
+            continue
+        if line.startswith(("http://", "https://")):
+            kept.append(line)
+            current_len += line_len
+    result = "\n\n".join(kept).strip()
+    if len(result) <= limit:
+        return result
+    return _trim_preserve_lines(result, limit)
 
 
 def build_kakao_authorize_url(rest_api_key: str, redirect_uri: str, scope: str = "talk_message") -> dict[str, Any]:
