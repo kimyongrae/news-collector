@@ -12,11 +12,11 @@ on:
   #
   # 이전 설정 "0 0 * * *" (UTC 00:00 = KST 09:00) 는 **정시 정각**이라
   # 부하가 몰려 실행이 건너뛰어지는 경우가 잦았습니다.
-  # 아래는 KST 10:17 (UTC 01:17) 로 이동 — 정시를 피하고 10시대에 실행.
+  # 아래는 KST 09:17 (UTC 00:17) 로 이동 — 정시를 피하고 장 초반에 실행.
   # GitHub Actions schedule 은 부하 상황에 따라 지연될 수 있으므로,
-  # 실제 실행 시각이 KST 10시대가 아니면 아래 guard 단계에서 스킵.
+  # 실제 실행 시각이 KST 9시대가 아니면 아래 guard 단계에서 스킵.
   schedule:
-    - cron: "17 1 * * *"
+    - cron: "17 0 * * *"
 
   # 수동 실행 (Actions 탭 → Run workflow) 및 디버깅용
   workflow_dispatch:
@@ -65,8 +65,8 @@ jobs:
           HOUR="$(TZ=Asia/Seoul date +%H)"
           NOW="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S %Z')"
           echo "현재 한국시간: $NOW"
-          if [ "$HOUR" != "10" ]; then
-            echo "GitHub Actions schedule 이 지연되어 KST 10시대가 아닙니다. 오후/늦은 실행을 막기 위해 스킵합니다."
+          if [ "$HOUR" != "09" ]; then
+            echo "GitHub Actions schedule 이 지연되어 KST 9시대가 아닙니다. 오후/늦은 실행을 막기 위해 스킵합니다."
             echo "run_collect=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

@@ -10,7 +10,7 @@ import re
 DEFAULT_SETTINGS = {
     "enabled": False,
     "provider": "kakao_memo",
-    "schedule_times": ["10:17"],
+    "schedule_times": ["09:17"],
     "lookback_hours": 24,
     "min_importance": 4,
     "max_items": 8,
@@ -19,7 +19,7 @@ DEFAULT_SETTINGS = {
     "include_ranked": True,
     "include_links": True,
     "headline": "오전 시황 브리핑",
-    "collect_schedule_times": ["10:17"],
+    "collect_schedule_times": ["09:17"],
     "notify_after_collect": True,
     "collector_config_path": "config/categories.yaml",
 }
