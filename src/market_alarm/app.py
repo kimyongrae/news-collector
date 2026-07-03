@@ -6,7 +6,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .digest import build_digest
-from .notifiers import build_kakao_authorize_url, exchange_kakao_code, get_notifier, test_kakao_token
+from .notifiers import build_kakao_authorize_url, exchange_kakao_code, get_notifier, refresh_kakao_access_token, test_kakao_token
 from .storage import SECRET_KEYS, Store, is_valid_secret_value
 from .supabase import SupabaseNewsClient
 
@@ -15,6 +15,9 @@ ENV_SECRET_KEYS = {
     "SUPABASE_URL": "supabase_url",
     "SUPABASE_SERVICE_KEY": "supabase_service_key",
     "KAKAO_ACCESS_TOKEN": "kakao_access_token",
+    "KAKAO_REFRESH_TOKEN": "kakao_refresh_token",
+    "KAKAO_REST_API_KEY": "kakao_rest_api_key",
+    "KAKAO_CLIENT_SECRET": "kakao_client_secret",
 }
 
 
@@ -160,8 +163,12 @@ class MarketAlarmApp:
             return {"ok": True, "skipped": True, "reason": "duplicate_digest", "digest": digest}
 
         notifier = get_notifier(provider)
+        if provider == "kakao_memo":
+            self._refresh_kakao_token(secrets, settings)
         settings["kakao_access_token"] = secrets.get("kakao_access_token", "")
         result = notifier.send(digest["text"], settings)
+        if not result["ok"] and settings.get("kakao_refresh_detail"):
+            result["detail"] = f"{result['detail']} · token refresh: {settings['kakao_refresh_detail']}"
         status = "sent" if result["ok"] else "failed"
         self.store.record_send(
             digest_hash=digest["hash"],
@@ -171,6 +178,28 @@ class MarketAlarmApp:
             error="" if result["ok"] else result["detail"],
         )
         return {"ok": bool(result["ok"]), "result": result, "digest": digest}
+
+    def _refresh_kakao_token(self, secrets: dict[str, str], settings: dict[str, Any]) -> None:
+        refresh_token = secrets.get("kakao_refresh_token", "")
+        rest_api_key = secrets.get("kakao_rest_api_key", "")
+        client_secret = secrets.get("kakao_client_secret", "")
+        if not refresh_token or not rest_api_key:
+            return
+
+        result = refresh_kakao_access_token(rest_api_key, refresh_token, client_secret)
+        if not result.get("ok"):
+            settings["kakao_refresh_detail"] = result.get("detail", "")
+            return
+
+        payload = result.get("payload") or {}
+        access_token = str(payload.get("access_token") or "").strip()
+        new_refresh_token = str(payload.get("refresh_token") or "").strip()
+        if access_token:
+            secrets["kakao_access_token"] = access_token
+        if new_refresh_token:
+            secrets["kakao_refresh_token"] = new_refresh_token
+            self.store.save_secrets({"kakao_refresh_token": new_refresh_token})
+        settings["kakao_refresh_detail"] = result.get("detail", "")
 
     def _runtime_secrets(self) -> dict[str, str]:
         import os

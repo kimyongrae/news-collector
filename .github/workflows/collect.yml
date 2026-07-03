@@ -12,9 +12,11 @@ on:
   #
   # 이전 설정 "0 0 * * *" (UTC 00:00 = KST 09:00) 는 **정시 정각**이라
   # 부하가 몰려 실행이 건너뛰어지는 경우가 잦았습니다.
-  # 아래는 KST 10:07 (UTC 01:07) 로 이동 — 정시를 피하고 10시 직후에 실행.
+  # 아래는 KST 10:17 (UTC 01:17) 로 이동 — 정시를 피하고 10시대에 실행.
+  # GitHub Actions schedule 은 부하 상황에 따라 지연될 수 있으므로,
+  # 실제 실행 시각이 KST 10시대가 아니면 아래 guard 단계에서 스킵.
   schedule:
-    - cron: "7 1 * * *"
+    - cron: "17 1 * * *"
 
   # 수동 실행 (Actions 탭 → Run workflow) 및 디버깅용
   workflow_dispatch:
@@ -56,7 +58,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: ⏰ 스케줄 실행 시간 확인
+        id: schedule_window
+        if: github.event_name == 'schedule'
+        run: |
+          HOUR="$(TZ=Asia/Seoul date +%H)"
+          NOW="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "현재 한국시간: $NOW"
+          if [ "$HOUR" != "10" ]; then
+            echo "GitHub Actions schedule 이 지연되어 KST 10시대가 아닙니다. 오후/늦은 실행을 막기 위해 스킵합니다."
+            echo "run_collect=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "run_collect=true" >> "$GITHUB_OUTPUT"
+
       - name: 🔐 시크릿 존재 여부 점검
+        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           GOOGLE_OAUTH_TOKEN:   ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
@@ -64,6 +81,9 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           KAKAO_ACCESS_TOKEN:   ${{ secrets.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN:  ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REST_API_KEY:   ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET:  ${{ secrets.KAKAO_CLIENT_SECRET }}
         run: |
           echo "--- 시크릿 점검 (값은 출력하지 않음) ---"
           if [ -z "$GOOGLE_OAUTH_TOKEN" ]; then
@@ -87,12 +107,18 @@ jobs:
             echo "✅ Supabase 설정됨"
           fi
           if [ -z "$KAKAO_ACCESS_TOKEN" ]; then
-            echo "ℹ️  KAKAO_ACCESS_TOKEN 미설정 — 카카오 발송 단계는 실패할 수 있음"
+            echo "ℹ️  KAKAO_ACCESS_TOKEN 미설정 — refresh token 설정이 있으면 자동 갱신 시도"
           else
             echo "✅ KAKAO_ACCESS_TOKEN 설정됨"
           fi
+          if [ -z "$KAKAO_REFRESH_TOKEN" ] || [ -z "$KAKAO_REST_API_KEY" ]; then
+            echo "ℹ️  KAKAO_REFRESH_TOKEN 또는 KAKAO_REST_API_KEY 미설정 — access token 자동 갱신 불가"
+          else
+            echo "✅ Kakao refresh 설정됨"
+          fi
 
       - name: 📰 뉴스 수집 실행
+        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           GOOGLE_OAUTH_TOKEN:    ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
@@ -111,10 +137,14 @@ jobs:
           python src/collector.py "$CONFIG"
 
       - name: 💬 카카오 시황 발송
+        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
           KAKAO_ACCESS_TOKEN:    ${{ secrets.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN:   ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REST_API_KEY:    ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET:   ${{ secrets.KAKAO_CLIENT_SECRET }}
           PYTHONUNBUFFERED:      "1"
           TZ:                    "Asia/Seoul"
         run: |
@@ -127,7 +157,7 @@ jobs:
       # 변경 없으면 (실패 시) 그냥 스킵.
       # ─────────────────────────────────────────────────────
       - name: 💓 keepalive — LAST_RUN.txt 갱신
-        if: success()
+        if: success() && (github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true')
         run: |
           mkdir -p .github
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/LAST_RUN.txt

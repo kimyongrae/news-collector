@@ -1,4 +1,4 @@
-const categoryOptions = ["경제", "주식", "금리/환율", "네이버금융", "많이본뉴스_경제", "많이본뉴스_IT", "IT/산업", "부동산"];
+const categoryOptions = ["경제", "주식", "금리/환율", "네이버금융", "많이본뉴스_경제", "많이본뉴스_IT", "많이본뉴스_세계", "많이본뉴스_사회", "많이본뉴스_전체", "IT/산업", "부동산"];
 const sentimentOptions = ["긍정", "부정", "중립"];
 const secretStorageKey = "newsCollector.secretValues";
 const legacySecretStorageKey = "marketAlarm.secretValues";
@@ -8,6 +8,7 @@ const secretKeys = [
   "supabase_url",
   "supabase_service_key",
   "kakao_access_token",
+  "kakao_refresh_token",
   "kakao_rest_api_key",
   "kakao_redirect_uri",
   "kakao_client_secret",
@@ -66,6 +67,7 @@ function renderSecretFields(data) {
     ["supabase_url", "https://xxxx.supabase.co"],
     ["supabase_service_key", "news_articles 읽기용 키"],
     ["kakao_access_token", "카카오 access token"],
+    ["kakao_refresh_token", "카카오 refresh token"],
     ["kakao_rest_api_key", "카카오 앱 REST API 키"],
     ["kakao_redirect_uri", "등록한 Redirect URI"],
     ["kakao_client_secret", "사용 설정한 경우에만 입력"],
@@ -188,6 +190,7 @@ function collectSecrets() {
     supabase_url: $("supabase_url").value.trim(),
     supabase_service_key: $("supabase_service_key").value.trim(),
     kakao_access_token: $("kakao_access_token").value.trim(),
+    kakao_refresh_token: $("kakao_refresh_token").value.trim(),
     kakao_rest_api_key: $("kakao_rest_api_key").value.trim(),
     kakao_redirect_uri: $("kakao_redirect_uri").value.trim(),
     kakao_client_secret: $("kakao_client_secret").value.trim(),
@@ -207,6 +210,7 @@ function isPlausibleSecretValue(key, value) {
   if (key === "kakao_rest_api_key") return /^[0-9a-fA-F]{32}$/.test(text);
   if (key === "kakao_redirect_uri") return text.startsWith("http://") || text.startsWith("https://");
   if (key === "kakao_client_secret") return !text.startsWith("http://") && !text.startsWith("sb_");
+  if (key === "kakao_refresh_token") return !text.startsWith("http://") && !text.startsWith("sb_");
   if (key === "kakao_access_token") {
     return !text.startsWith("http://")
       && !text.startsWith("sb_")

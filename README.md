@@ -136,14 +136,14 @@ python get_token.py
 
 ```yaml
 schedule:
-  - cron: "7 0 * * *"   # UTC 00:07 = KST 09:07
+  - cron: "17 1 * * *"   # UTC 01:17 = KST 10:17
 ```
 
-### 왜 정각 00:00 이 아니라 00:07 인가
+### 왜 정각이 아니라 10:17 인가
 
 > **GitHub Actions 공식 문서** — The `schedule` event can be delayed during periods of high loads. **High load times include the start of every hour.** To decrease the chance of delay, schedule your workflow to run at a different time of the hour.
 
-이전 설정 `"0 0 * * *"` (정시 정각) 는 전 세계 workflow 가 동시에 몰리는 시각이라 schedule 이 **누락·지연**되는 경우가 많습니다. 7분 뒤로 옮기면 부하가 완화돼 훨씬 안정적으로 실행됩니다.
+정시 정각은 전 세계 workflow 가 동시에 몰리는 시각이라 schedule 이 **누락·지연**되는 경우가 많습니다. 17분으로 옮기면 부하가 완화돼 더 안정적으로 실행됩니다. 그래도 GitHub Actions schedule 은 보장된 정각 실행이 아니므로, 워크플로에는 KST 10시대가 아닐 경우 실행을 스킵하는 guard 가 들어 있습니다.
 
 ### Actions 가 안 돌 때 체크리스트
 

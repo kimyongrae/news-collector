@@ -88,6 +88,17 @@
 
           <div class="field">
             <div class="field-head">
+              <label for="kakao_refresh_token">Kakao Refresh Token</label>
+              <span id="kakao_refresh_token_saved" class="saved-pill">확인 중</span>
+            </div>
+            <div class="secret-input">
+              <input id="kakao_refresh_token" name="kakao_refresh_token" type="password" autocomplete="off" placeholder="access token 자동 갱신용 refresh token" />
+              <button type="button" class="reveal-secret" data-toggle-secret="kakao_refresh_token" aria-label="Kakao Refresh Token 보기" title="입력값 보기"></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
               <label for="kakao_rest_api_key">Kakao REST API Key</label>
               <span id="kakao_rest_api_key_saved" class="saved-pill">확인 중</span>
             </div>

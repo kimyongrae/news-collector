@@ -52,7 +52,8 @@ class SupabaseNewsClient:
         if sentiments:
             query["sentiment"] = "in.(" + ",".join(_pg_escape(v) for v in sentiments) + ")"
 
-        endpoint = f"{url}/rest/v1/news_articles?{urlencode(query, safe='(),.*\"')}"
+        safe_chars = '(),.*"'
+        endpoint = f"{url}/rest/v1/news_articles?{urlencode(query, safe=safe_chars)}"
         req = Request(
             endpoint,
             headers={
