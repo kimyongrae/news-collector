@@ -892,7 +892,9 @@ def fetch_rss(
     exclude_keyword_filter: 제목에 이 키워드가 있으면 제외 (광범위 카테고리 중복 방지)
     """
     try:
-        feed  = feedparser.parse(url)
+        resp = SESSION.get(url, timeout=12)
+        resp.raise_for_status()
+        feed  = feedparser.parse(resp.content)
         media = label or feed.feed.get("title", url)
         arts  = []
 
