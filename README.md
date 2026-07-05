@@ -143,7 +143,7 @@ schedule:
 
 > **GitHub Actions 공식 문서** — The `schedule` event can be delayed during periods of high loads. **High load times include the start of every hour.** To decrease the chance of delay, schedule your workflow to run at a different time of the hour.
 
-정시 정각은 전 세계 workflow 가 동시에 몰리는 시각이라 schedule 이 **누락·지연**되는 경우가 많습니다. 17분으로 옮기면 부하가 완화돼 더 안정적으로 실행됩니다. 그래도 GitHub Actions schedule 은 보장된 정각 실행이 아니므로, 워크플로에는 KST 9시대가 아닐 경우 실행을 스킵하는 guard 가 들어 있습니다.
+정시 정각은 전 세계 workflow 가 동시에 몰리는 시각이라 schedule 이 **누락·지연**되는 경우가 많습니다. 17분으로 옮기면 부하가 완화돼 더 안정적으로 실행됩니다. 그래도 GitHub Actions schedule 은 보장된 정각 실행이 아니므로, 워크플로에는 실제 KST 실행 시각을 로그로 남깁니다. 지연되더라도 하루 1회 수집과 카카오 발송은 진행합니다.
 
 ### Actions 가 안 돌 때 체크리스트
 

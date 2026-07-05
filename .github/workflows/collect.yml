@@ -14,7 +14,7 @@ on:
   # 부하가 몰려 실행이 건너뛰어지는 경우가 잦았습니다.
   # 아래는 KST 09:17 (UTC 00:17) 로 이동 — 정시를 피하고 장 초반에 실행.
   # GitHub Actions schedule 은 부하 상황에 따라 지연될 수 있으므로,
-  # 실제 실행 시각이 KST 9시대가 아니면 아래 guard 단계에서 스킵.
+  # 실제 실행 시각을 로그로 남깁니다. 지연되더라도 하루 1회 수집/발송은 진행합니다.
   schedule:
     - cron: "17 0 * * *"
 
@@ -59,21 +59,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: ⏰ 스케줄 실행 시간 확인
-        id: schedule_window
         if: github.event_name == 'schedule'
         run: |
           HOUR="$(TZ=Asia/Seoul date +%H)"
           NOW="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S %Z')"
           echo "현재 한국시간: $NOW"
           if [ "$HOUR" != "09" ]; then
-            echo "GitHub Actions schedule 이 지연되어 KST 9시대가 아닙니다. 오후/늦은 실행을 막기 위해 스킵합니다."
-            echo "run_collect=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "GitHub Actions schedule 이 지연되어 KST 9시대가 아닙니다. 그래도 오늘 수집/발송은 진행합니다."
           fi
-          echo "run_collect=true" >> "$GITHUB_OUTPUT"
 
       - name: 🔐 시크릿 존재 여부 점검
-        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           GOOGLE_OAUTH_TOKEN:   ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
@@ -118,7 +113,6 @@ jobs:
           fi
 
       - name: 📰 뉴스 수집 실행
-        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           GOOGLE_OAUTH_TOKEN:    ${{ secrets.GOOGLE_OAUTH_TOKEN }}
           GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
@@ -137,7 +131,6 @@ jobs:
           python src/collector.py "$CONFIG"
 
       - name: 💬 카카오 시황 발송
-        if: github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true'
         env:
           SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -157,7 +150,7 @@ jobs:
       # 변경 없으면 (실패 시) 그냥 스킵.
       # ─────────────────────────────────────────────────────
       - name: 💓 keepalive — LAST_RUN.txt 갱신
-        if: success() && (github.event_name != 'schedule' || steps.schedule_window.outputs.run_collect == 'true')
+        if: success()
         run: |
           mkdir -p .github
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/LAST_RUN.txt
