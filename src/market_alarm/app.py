@@ -152,12 +152,12 @@ class MarketAlarmApp:
             result["ok"] = bool(result["send"].get("ok"))
         return result
 
-    def send_now(self, force: bool = False) -> dict[str, Any]:
+    def send_now(self, force: bool = False, provider_override: str | None = None) -> dict[str, Any]:
         settings = self.store.get_settings()
         secrets = self._runtime_secrets()
         articles = self.supabase.fetch_articles(settings, secrets)
         digest = build_digest(articles, settings)
-        provider = settings.get("provider", "console")
+        provider = provider_override or settings.get("provider", "console")
 
         if not force and self.store.was_sent(digest["hash"]):
             return {"ok": True, "skipped": True, "reason": "duplicate_digest", "digest": digest}
@@ -179,11 +179,24 @@ class MarketAlarmApp:
         )
         return {"ok": bool(result["ok"]), "result": result, "digest": digest}
 
+    def test_kakao_send(self) -> dict[str, Any]:
+        return self.send_now(force=True, provider_override="kakao_memo")
+
     def _refresh_kakao_token(self, secrets: dict[str, str], settings: dict[str, Any]) -> None:
         refresh_token = secrets.get("kakao_refresh_token", "")
         rest_api_key = secrets.get("kakao_rest_api_key", "")
         client_secret = secrets.get("kakao_client_secret", "")
-        if not refresh_token or not rest_api_key:
+        missing = []
+        if not refresh_token:
+            missing.append("KAKAO_REFRESH_TOKEN")
+        if not rest_api_key:
+            missing.append("KAKAO_REST_API_KEY")
+        if missing:
+            settings["kakao_refresh_detail"] = (
+                "access token 자동 갱신 불가: "
+                + ", ".join(missing)
+                + " secret이 필요합니다."
+            )
             return
 
         result = refresh_kakao_access_token(rest_api_key, refresh_token, client_secret)

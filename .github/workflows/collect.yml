@@ -171,3 +171,4 @@ jobs:
           echo "  2. OAuth refresh_token 이 만료/취소되지 않았는지"
           echo "  3. Google Drive folder_id 가 유효한지"
           echo "  4. requirements.txt 의존성이 빌드되는지"
+          echo "  5. 카카오 발송 실패라면 KAKAO_ACCESS_TOKEN 또는 KAKAO_REFRESH_TOKEN + KAKAO_REST_API_KEY 가 등록돼 있는지"

@@ -366,6 +366,28 @@ async function testConnections() {
   `;
 }
 
+async function testKakaoSendLikeActions() {
+  const resultEl = $("kakaoSendTestResult");
+  resultEl.classList.add("visible");
+  resultEl.textContent = "Actions 카카오 발송 경로 테스트 중...";
+  await saveSecrets();
+  await saveSettings();
+  const data = await postJson("/api/test-kakao-send", {});
+  const detail = data.result?.detail || data.error || data.detail || "";
+  if (!data.ok) {
+    resultEl.innerHTML = `<div><span class="fail">Kakao 발송 실패</span> ${escapeHtml(detail || "카카오 발송 실패")}</div>`;
+    return;
+  }
+  const itemCount = data.digest?.items?.length ?? 0;
+  resultEl.innerHTML = `
+    <div><span class="ok">Kakao 발송 성공</span> ${escapeHtml(detail || "발송 완료")} · 기사 ${itemCount}건</div>
+  `;
+  if (data.digest?.text) {
+    $("preview").textContent = data.digest.text;
+  }
+  await refreshLogs();
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -451,6 +473,7 @@ $("sendBtn").addEventListener("click", sendNow);
 $("collectBtn").addEventListener("click", collectNow);
 $("saveSecretsBtn").addEventListener("click", saveSecrets);
 $("testConnectionsBtn").addEventListener("click", testConnections);
+$("testKakaoSendBtn").addEventListener("click", testKakaoSendLikeActions);
 $("kakaoAuthorizeBtn").addEventListener("click", createKakaoAuthorizeUrl);
 $("kakaoTokenBtn").addEventListener("click", exchangeKakaoToken);
 document.querySelectorAll("[data-test-secret]").forEach((btn) => {

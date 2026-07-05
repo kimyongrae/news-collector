@@ -72,6 +72,11 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, self.app.send_now(force=force))
             except Exception as exc:
                 return json_response(self, {"ok": False, "error": str(exc)}, 500)
+        if parsed.path == "/api/test-kakao-send":
+            try:
+                return json_response(self, self.app.test_kakao_send())
+            except Exception as exc:
+                return json_response(self, {"ok": False, "error": str(exc)}, 500)
         return self._not_found()
 
     def _read_json(self):
