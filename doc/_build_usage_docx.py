@@ -186,7 +186,7 @@ def build():
         "   Gemini AI 분석 — 요약 · 감성 · 중요도  (배치 20개)\n"
         "        ↓\n"
         "   ├─►  Google Sheets  (연단위 파일 · 월별 탭)   ← TubeAI 대시보드\n"
-        "   └─►  Supabase       (365일 retention)         ← 분석·통계용",
+        "   └─►  Supabase       (90일 retention)          ← 분석·통계용",
     )
     add_para(
         doc,
@@ -203,7 +203,7 @@ def build():
             ["Google OAuth Client", "Google Cloud Console → Credentials", "Sheets / Drive 접근"],
             ["Gemini API Key", "https://aistudio.google.com/apikey", "AI 요약·감성·중요도 분석"],
             ["Google Drive 폴더", "drive.google.com (폴더 URL 의 ID)", "결과 시트 저장 위치"],
-            ["Supabase 프로젝트", "https://supabase.com (선택)", "365일 retention 저장소"],
+            ["Supabase 프로젝트", "https://supabase.com (선택)", "90일 retention 저장소"],
             ["Python 3.11+", "https://www.python.org", "로컬 실행 환경"],
         ],
     )
@@ -258,7 +258,7 @@ def build():
             ["GDRIVE_SPREADSHEET_ID", "⬜", "특정 시트에 강제 저장하고 싶을 때"],
             ["SUPABASE_URL", "⬜", "Supabase 동시 저장 (선택)"],
             ["SUPABASE_SERVICE_KEY", "⬜", "service_role 키 — 절대 커밋 금지"],
-            ["SUPABASE_RETENTION_DAYS", "⬜", "기본 90, Actions 는 365 사용"],
+            ["SUPABASE_RETENTION_DAYS", "⬜", "기본 90"],
             ["SKIP_GEMINI", "⬜", "1 설정 시 AI 호출 전부 스킵"],
             ["AI_BATCH_SIZE", "⬜", "한 호출에 묶을 기사 수 (기본 20)"],
             ["AI_CALL_DELAY", "⬜", "호출 간 딜레이 초 (기본 1.5)"],
@@ -297,7 +297,7 @@ def build():
     add_bullet(doc, "GDRIVE_FOLDER_ID (선택, 없으면 categories.yaml 의 folder_id 사용)")
     add_bullet(doc, "GDRIVE_SPREADSHEET_ID (선택)")
     add_bullet(doc, "SUPABASE_URL · SUPABASE_SERVICE_KEY (Supabase 사용 시)")
-    add_bullet(doc, "SUPABASE_RETENTION_DAYS (선택, 미설정 시 워크플로가 365 주입)")
+    add_bullet(doc, "SUPABASE_RETENTION_DAYS (선택, 미설정 시 90일)")
     add_para(
         doc,
         "이후 매일 KST 09:07 에 .github/workflows/collect.yml 이 자동 실행됩니다. "
@@ -345,7 +345,7 @@ def build():
     add_bullet(doc, "테이블: news_articles (콘솔에서 사전 생성 필요)")
     add_bullet(doc, "url_hash unique key → 중복 자동 스킵")
     add_bullet(doc, "매 실행마다 SUPABASE_RETENTION_DAYS 이전 데이터 자동 cleanup")
-    add_bullet(doc, "기본값: 365일 (GitHub Actions) / 90일 (.env 기본)")
+    add_bullet(doc, "기본값: 90일 (GitHub Actions / 로컬 기본)")
 
     # ── 7. Gemini 쿼터 관리 ──────────────────────────────
     add_heading(doc, "7. Gemini 쿼터 관리", 1)

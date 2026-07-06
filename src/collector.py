@@ -352,7 +352,70 @@ def _is_month_older_than_cutoff(label: str, cutoff_year: int, cutoff_month: int)
     return t < (cutoff_year, cutoff_month)
 
 
-def prune_old_month_tabs(gc, drive, now, folder_id: str, retention_months: int = 6) -> int:
+def _prune_month_tabs_in_spreadsheet(sp, drive, sp_id: str, sp_name: str,
+                                     cutoff_year: int, cutoff_month: int,
+                                     allow_trash_file: bool) -> tuple[int, int]:
+    """오래된 월탭을 지우고, 필요하면 비어 있는 연단위 파일을 휴지통으로 이동."""
+    deleted_total = 0
+    deleted_files = 0
+
+    worksheets = sp.worksheets()
+    month_tabs = [ws for ws in worksheets
+                  if ws.title != "INDEX" and _month_label_to_tuple(ws.title)]
+    old_tabs = [ws for ws in month_tabs
+                if _is_month_older_than_cutoff(ws.title, cutoff_year, cutoff_month)]
+
+    if not old_tabs:
+        print(f"[정리] {sp_name}: 삭제 대상 없음 ({len(month_tabs)}개 월탭 모두 보관 범위)")
+        return 0, 0
+
+    ws_index = None
+    try:
+        ws_index = sp.worksheet("INDEX")
+    except gspread.WorksheetNotFound:
+        pass
+
+    for ws in old_tabs:
+        label = ws.title
+        try:
+            sp.del_worksheet(ws)
+            deleted_total += 1
+            print(f"[정리] {sp_name}: 월탭 삭제 → {label}")
+        except Exception as e:
+            print(f"[정리] {sp_name}: 월탭 삭제 실패 {label}: {e}")
+            continue
+
+        if ws_index is not None:
+            try:
+                rows = ws_index.get_all_values()
+                for i, row in enumerate(rows):
+                    if i == 0:
+                        continue
+                    if row and row[0] == label:
+                        ws_index.delete_rows(i + 1)
+                        print(f"[정리] {sp_name}: INDEX 행 제거 → {label}")
+                        break
+            except Exception as e:
+                print(f"[정리] {sp_name}: INDEX 행 제거 실패 {label}: {e}")
+
+    if not allow_trash_file:
+        return deleted_total, deleted_files
+
+    try:
+        remaining = [ws for ws in sp.worksheets()
+                     if ws.title != "INDEX" and _month_label_to_tuple(ws.title)]
+        if not remaining:
+            drive.files().update(fileId=sp_id, body={"trashed": True}).execute()
+            deleted_files += 1
+            print(f"[정리] {sp_name}: 월탭 0개 → 시트 자체를 휴지통으로 이동")
+    except Exception as e:
+        print(f"[정리] {sp_name}: 빈 시트 정리 실패: {e}")
+
+    return deleted_total, deleted_files
+
+
+def prune_old_month_tabs(gc, drive, now, folder_id: str = "", spreadsheet_id: str = "",
+                         retention_months: int = 6) -> int:
     """매월 1일 호출 — 6개월 retention 을 넘긴 월탭/연단위 시트를 삭제.
 
     예시 (retention=6):
@@ -361,9 +424,10 @@ def prune_old_month_tabs(gc, drive, now, folder_id: str, retention_months: int =
     cross-year 도 동일 — now=2026-03 은 2025-10 까지 보관, 2025-09 이전 삭제.
 
     동작:
-      1) 폴더의 모든 RSS_뉴스_* 스프레드시트 순회
-      2) 각 시트에서 cutoff 보다 오래된 월탭 삭제 + INDEX 행 제거
-      3) 시트에 INDEX 외 월탭이 하나도 안 남으면 시트 자체를 휴지통으로 이동
+      1) spreadsheet_id 직접 지정 시 해당 파일 정리
+      2) folder_id 지정 시 폴더의 모든 RSS_뉴스_* 스프레드시트 순회
+      3) 각 시트에서 cutoff 보다 오래된 월탭 삭제 + INDEX 행 제거
+      4) 폴더 기반 연단위 시트는 INDEX 외 월탭이 하나도 안 남으면 휴지통으로 이동
 
     반환: 삭제한 월탭 개수.
     """
@@ -371,24 +435,46 @@ def prune_old_month_tabs(gc, drive, now, folder_id: str, retention_months: int =
     print(f"[정리] retention={retention_months}개월 · 보관 시작 (포함) = {cutoff_year:04d}-{cutoff_month:02d} · "
           f"이 이전 월탭은 모두 삭제")
 
-    if not folder_id:
-        print("[정리] folder_id 없음 — 단일 시트만 정리합니다 (스프레드시트 자체 삭제는 skip).")
+    if not folder_id and not spreadsheet_id:
+        print("[정리] folder_id/spreadsheet_id 없음 — 월탭 정리 skip")
         return 0
+
+    targets = {}
+    if spreadsheet_id:
+        targets[spreadsheet_id] = {
+            "id": spreadsheet_id,
+            "name": "(spreadsheet_id 직접 지정)",
+            "allow_trash_file": False,
+        }
 
     deleted_total = 0
     deleted_files = 0
-    try:
-        # RSS_뉴스_YYYY 형식 스프레드시트 모두 조회
-        q = (f"'{folder_id}' in parents and "
-             f"mimeType='application/vnd.google-apps.spreadsheet' and "
-             f"name contains 'RSS_뉴스_' and trashed=false")
-        files = drive.files().list(q=q, fields="files(id, name)").execute().get("files", [])
-    except Exception as e:
-        print(f"[정리] 스프레드시트 목록 조회 실패: {e}")
+
+    if folder_id:
+        try:
+            # RSS_뉴스_YYYY 형식 스프레드시트 모두 조회
+            q = (f"'{folder_id}' in parents and "
+                 f"mimeType='application/vnd.google-apps.spreadsheet' and "
+                 f"name contains 'RSS_뉴스_' and trashed=false")
+            files = drive.files().list(q=q, fields="files(id, name)").execute().get("files", [])
+            for f in files:
+                sp_id = f.get("id")
+                if not sp_id:
+                    continue
+                targets[sp_id] = {
+                    "id": sp_id,
+                    "name": f.get("name", ""),
+                    "allow_trash_file": True,
+                }
+        except Exception as e:
+            print(f"[정리] 스프레드시트 목록 조회 실패: {e}")
+
+    if not targets:
+        print("[정리] 정리 대상 스프레드시트 없음")
         return 0
 
-    for f in files:
-        sp_id   = f.get("id")
+    for f in targets.values():
+        sp_id = f.get("id")
         sp_name = f.get("name", "")
         try:
             sp = gc.open_by_key(sp_id)
@@ -396,54 +482,12 @@ def prune_old_month_tabs(gc, drive, now, folder_id: str, retention_months: int =
             print(f"[정리] 시트 열기 실패 ({sp_name}): {e}")
             continue
 
-        worksheets = sp.worksheets()
-        month_tabs = [ws for ws in worksheets
-                      if ws.title != "INDEX" and _month_label_to_tuple(ws.title)]
-        old_tabs   = [ws for ws in month_tabs
-                      if _is_month_older_than_cutoff(ws.title, cutoff_year, cutoff_month)]
-
-        if not old_tabs:
-            print(f"[정리] {sp_name}: 삭제 대상 없음 ({len(month_tabs)}개 월탭 모두 보관 범위)")
-            continue
-
-        # 월탭 + INDEX 행 삭제
-        ws_index = None
-        try: ws_index = sp.worksheet("INDEX")
-        except gspread.WorksheetNotFound: pass
-
-        for ws in old_tabs:
-            label = ws.title
-            try:
-                sp.del_worksheet(ws)
-                deleted_total += 1
-                print(f"[정리] {sp_name}: 월탭 삭제 → {label}")
-            except Exception as e:
-                print(f"[정리] {sp_name}: 월탭 삭제 실패 {label}: {e}")
-                continue
-
-            # INDEX 에서 해당 월 행 제거
-            if ws_index is not None:
-                try:
-                    rows = ws_index.get_all_values()
-                    for i, row in enumerate(rows):
-                        if i == 0: continue  # 헤더
-                        if row and row[0] == label:
-                            ws_index.delete_rows(i + 1)
-                            print(f"[정리] {sp_name}: INDEX 행 제거 → {label}")
-                            break
-                except Exception as e:
-                    print(f"[정리] {sp_name}: INDEX 행 제거 실패 {label}: {e}")
-
-        # 시트에 월탭이 하나도 안 남으면 휴지통으로 (INDEX 만 있으면 빈 시트라 의미 없음)
-        try:
-            remaining = [ws for ws in sp.worksheets()
-                         if ws.title != "INDEX" and _month_label_to_tuple(ws.title)]
-            if not remaining:
-                drive.files().update(fileId=sp_id, body={"trashed": True}).execute()
-                deleted_files += 1
-                print(f"[정리] {sp_name}: 월탭 0개 → 시트 자체를 휴지통으로 이동")
-        except Exception as e:
-            print(f"[정리] {sp_name}: 빈 시트 정리 실패: {e}")
+        d_tabs, d_files = _prune_month_tabs_in_spreadsheet(
+            sp, drive, sp_id, sp_name, cutoff_year, cutoff_month,
+            allow_trash_file=bool(f.get("allow_trash_file")),
+        )
+        deleted_total += d_tabs
+        deleted_files += d_files
 
     print(f"[정리] 완료 · 삭제 월탭 {deleted_total}개 · 휴지통 시트 {deleted_files}개")
     return deleted_total
@@ -1317,11 +1361,16 @@ def run(config_path="config/categories.yaml"):
     except ValueError:
         retention_months = 6
     force_prune = os.environ.get("NEWS_RETENTION_FORCE", "").strip() in {"1", "true", "yes"}
-    if (now.day == 1 or force_prune) and folder_id:
+    if (now.day == 1 or force_prune) and (folder_id or spreadsheet_id):
         why = "1일 정기 정리" if now.day == 1 else "수동 강제 정리"
         print(f"[정리] {why} 실행 (retention={retention_months}개월)")
         try:
-            prune_old_month_tabs(gc, drive, now, folder_id, retention_months=retention_months)
+            prune_old_month_tabs(
+                gc, drive, now,
+                folder_id=folder_id,
+                spreadsheet_id=spreadsheet_id,
+                retention_months=retention_months,
+            )
         except Exception as e:
             print(f"[정리] 실행 실패 (수집은 계속): {type(e).__name__}: {e}")
 

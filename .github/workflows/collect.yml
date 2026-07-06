@@ -117,9 +117,9 @@ jobs:
           GDRIVE_SPREADSHEET_ID: ${{ secrets.GDRIVE_SPREADSHEET_ID }}
           SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # 보관 기간 — secret 미설정 시 collector 가 기본 90일 사용.
-          # 365 (1년) 권장. 한도의 26% 수준에서 안정화 + YoY 비교 가능.
-          SUPABASE_RETENTION_DAYS: ${{ secrets.SUPABASE_RETENTION_DAYS || '365' }}
+          # 보관 기간 — secret 미설정 시 DB 90일, Sheets 월탭 6개월 보관.
+          SUPABASE_RETENTION_DAYS: ${{ secrets.SUPABASE_RETENTION_DAYS || '90' }}
+          NEWS_RETENTION_MONTHS:    ${{ secrets.NEWS_RETENTION_MONTHS || '6' }}
           PYTHONUNBUFFERED:      "1"
           TZ:                    "Asia/Seoul"
         run: |
