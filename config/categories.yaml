@@ -46,10 +46,11 @@ categories:
       - 연준
       - FOMC
     sources:
-      - type: rss
-        url: https://www.hankyung.com/feed/economy
-        label: 한국경제_경제
-        crawl_body: true
+      # 한국경제 RSS는 유료 콘텐츠가 포함되어 본문을 읽을 수 없어 임시 제외
+      # - type: rss
+      #   url: https://www.hankyung.com/feed/economy
+      #   label: 한국경제_경제
+      #   crawl_body: true
 
       - type: rss
         url: https://rss.mk.co.kr/rss/30000001.xml
@@ -84,10 +85,11 @@ categories:
   # ── 부동산 ───────────────────────────────────────────────
   - name: 부동산
     sources:
-      - type: rss
-        url: https://www.hankyung.com/feed/realestate
-        label: 한국경제_부동산
-        crawl_body: true
+      # 한국경제 RSS는 유료 콘텐츠가 포함되어 본문을 읽을 수 없어 임시 제외
+      # - type: rss
+      #   url: https://www.hankyung.com/feed/realestate
+      #   label: 한국경제_부동산
+      #   crawl_body: true
 
       - type: rss
         url: https://rss.mk.co.kr/rss/30000014.xml
@@ -122,10 +124,11 @@ categories:
   # ── 주식 ─────────────────────────────────────────────────
   - name: 주식
     sources:
-      - type: rss
-        url: https://www.hankyung.com/feed/finance
-        label: 한국경제_금융
-        crawl_body: true
+      # 한국경제 RSS는 유료 콘텐츠가 포함되어 본문을 읽을 수 없어 임시 제외
+      # - type: rss
+      #   url: https://www.hankyung.com/feed/finance
+      #   label: 한국경제_금융
+      #   crawl_body: true
 
       - type: rss
         url: https://rss.mk.co.kr/rss/30000009.xml
@@ -180,11 +183,12 @@ categories:
         crawl_body: true
         limit: 8
 
-      - type: rss
-        url: https://www.hankyung.com/feed/economy    # 경제 피드에서 금리 기사 필터
-        label: 한국경제_금리환율
-        crawl_body: true
-        limit: 10
+      # 한국경제 RSS는 유료 콘텐츠가 포함되어 본문을 읽을 수 없어 임시 제외
+      # - type: rss
+      #   url: https://www.hankyung.com/feed/economy    # 경제 피드에서 금리 기사 필터
+      #   label: 한국경제_금리환율
+      #   crawl_body: true
+      #   limit: 10
 
       - type: rss
         url: https://www.yna.co.kr/economy/rss.xml   # 연합뉴스 경제
@@ -315,10 +319,11 @@ categories:
   # 2026-04-28 보강: IT조선 / 지디넷코리아 / 디지털타임스 / 네이버 IT섹션 추가
   - name: IT/산업
     sources:
-      - type: rss
-        url: https://www.hankyung.com/feed/it
-        label: 한국경제_IT
-        crawl_body: true
+      # 한국경제 RSS는 유료 콘텐츠가 포함되어 본문을 읽을 수 없어 임시 제외
+      # - type: rss
+      #   url: https://www.hankyung.com/feed/it
+      #   label: 한국경제_IT
+      #   crawl_body: true
       - type: rss
         url: https://rss.mk.co.kr/rss/30000007.xml
         label: 매일경제_IT
