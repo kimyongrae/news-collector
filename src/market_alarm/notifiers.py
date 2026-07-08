@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from typing import Any
 from urllib.parse import urlencode
 from urllib.error import HTTPError
@@ -80,18 +81,25 @@ class KakaoMemoNotifier:
             },
             method="POST",
         )
-        try:
-            with urlopen(req, timeout=15) as resp:
-                payload = resp.read().decode("utf-8")
-            return NotifyResult.ok(payload)
-        except HTTPError as exc:
-            body_text = exc.read().decode("utf-8", errors="replace")[:500]
-            detail = f"HTTP {exc.code}: {body_text}"
-            if exc.code == 403:
-                detail += " · Kakao talk_message 동의 권한이 없거나 카카오톡 메시지 API 설정이 비활성일 가능성이 큽니다. 인가 URL을 다시 생성해 동의 후 토큰을 재발급하세요."
-            return NotifyResult.fail(detail)
-        except Exception as exc:
-            return NotifyResult.fail(f"{type(exc).__name__}: {exc}")
+        last_exc: Exception | None = None
+        for attempt in range(1, 3):
+            try:
+                with urlopen(req, timeout=15) as resp:
+                    payload = resp.read().decode("utf-8")
+                return NotifyResult.ok(payload)
+            except HTTPError as exc:
+                body_text = exc.read().decode("utf-8", errors="replace")[:500]
+                detail = f"HTTP {exc.code}: {body_text}"
+                if exc.code == 403:
+                    detail += " · Kakao talk_message 동의 권한이 없거나 카카오톡 메시지 API 설정이 비활성일 가능성이 큽니다. 인가 URL을 다시 생성해 동의 후 토큰을 재발급하세요."
+                return NotifyResult.fail(detail)
+            except Exception as exc:
+                last_exc = exc
+                if attempt < 2:
+                    time.sleep(1.5 * attempt)
+                    continue
+                return NotifyResult.fail(f"{type(exc).__name__}: {exc}")
+        return NotifyResult.fail(f"{type(last_exc).__name__}: {last_exc}") if last_exc else NotifyResult.fail("unknown error")
 
 
 NOTIFIERS = {

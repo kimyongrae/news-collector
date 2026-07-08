@@ -1426,14 +1426,34 @@ def run(config_path="config/categories.yaml"):
                 rank_val,               # K 순위 (랭킹 페이지만 숫자)
                 views_cell,             # L 조회수 (랭킹 페이지에서 추출 성공 시)
             ])
+
+        def _append_rows_with_retry(max_attempts: int = 2) -> bool:
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    ws.append_rows(rows, value_input_option="USER_ENTERED")
+                    return True
+                except Exception as e:
+                    print(
+                        f"  [시트 기록 실패] {cat_name} 배치 저장 {attempt}/{max_attempts} → "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    if attempt < max_attempts:
+                        time.sleep(2 * attempt)
+            return False
+
+        if not _append_rows_with_retry():
+            print(f"  [배치 스킵] {cat_name} 배치를 시트에 쓰지 못해 다음 소스로 계속 진행합니다.")
+            return
+
+        for art, ai in zip(batch, ai_results):
             title_sets_by_category.setdefault(cat_name, set()).add(art["title"])
             total += 1
+            rank_val = art.get("rank", "")
+            views_val = art.get("views", "")
             rank_tag = f"#{rank_val}" if rank_val else ""
             view_tag = f"조회 {views_val}" if views_val else ""
-            extra    = " ".join(x for x in [rank_tag, view_tag] if x)
+            extra = " ".join(x for x in [rank_tag, view_tag] if x)
             print(f"  ✓ [{ai['importance']}★/{ai['sentiment']}] {extra} {art['title'][:50]}")
-
-        ws.append_rows(rows, value_input_option="USER_ENTERED")
 
         # ── Supabase 동시 쓰기 (실패 격리) ──────────────────────
         if sb.enabled:
