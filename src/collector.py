@@ -32,7 +32,19 @@ try:
     else:
         load_dotenv()
 except ImportError:
-    pass  # dotenv 미설치 — Actions 환경이거나 사용자가 env 를 직접 export 함
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(_env_path):
+        for _raw_line in open(_env_path, encoding="utf-8").read().splitlines():
+            _line = _raw_line.strip()
+            if not _line or _line.startswith("#") or "=" not in _line:
+                continue
+            if _line.startswith("export "):
+                _line = _line[len("export "):].strip()
+            _key, _value = _line.split("=", 1)
+            _key = _key.strip()
+            _value = _value.strip().strip('"').strip("'")
+            if _key:
+                os.environ.setdefault(_key, _value)
 
 import gspread
 from google.oauth2.credentials import Credentials
@@ -1309,6 +1321,36 @@ def imp_color(imp):
     return None
 
 
+def _env_state(key: str) -> str:
+    return "set" if os.environ.get(key, "").strip() else "missing"
+
+
+def _log_collection_env(cfg: dict) -> None:
+    print("[환경] 수집 런타임 상태")
+    for key in [
+        "GOOGLE_OAUTH_TOKEN",
+        "GEMINI_API_KEY",
+        "GDRIVE_FOLDER_ID",
+        "GDRIVE_SPREADSHEET_ID",
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_KEY",
+        "SUPABASE_RETENTION_DAYS",
+        "NEWS_RETENTION_MONTHS",
+        "NEWS_RETENTION_FORCE",
+        "SKIP_GEMINI",
+    ]:
+        print(f"[환경] {key}={_env_state(key)}")
+
+    folder_env = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
+    sheet_env = os.environ.get("GDRIVE_SPREADSHEET_ID", "").strip()
+    folder_cfg = str(cfg.get("folder_id", "")).strip()
+    sheet_cfg = str(cfg.get("spreadsheet_id", "")).strip()
+    folder_source = "env" if folder_env else ("yaml" if folder_cfg else "missing")
+    sheet_source = "env" if sheet_env else ("yaml" if sheet_cfg else "auto")
+    print(f"[설정] folder_id source={folder_source}")
+    print(f"[설정] spreadsheet_id source={sheet_source}")
+
+
 # ── 메인 ────────────────────────────────────────────────────
 def run(config_path="config/categories.yaml"):
     with open(config_path, encoding="utf-8") as f:
@@ -1317,6 +1359,7 @@ def run(config_path="config/categories.yaml"):
     now            = datetime.now(KST)
     month_label    = now.strftime("%Y-%m")          # 탭 이름: 2026-04
     collected_at   = now.strftime("%Y-%m-%d %H:%M")
+    _log_collection_env(cfg)
 
     # ── 환경변수 > yaml 순으로 우선 적용 ─────────────────────
     # GDRIVE_FOLDER_ID / GDRIVE_SPREADSHEET_ID 가 설정돼 있으면 그 값을 사용,

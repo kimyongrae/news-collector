@@ -45,6 +45,8 @@ jobs:
     steps:
       - name: 📥 저장소 체크아웃
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 🐍 Python 설정
         uses: actions/setup-python@v5
@@ -67,15 +69,15 @@ jobs:
 
       - name: 🔐 시크릿 존재 여부 점검
         env:
-          GOOGLE_OAUTH_TOKEN:   ${{ secrets.GOOGLE_OAUTH_TOKEN }}
-          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
-          GDRIVE_FOLDER_ID:     ${{ secrets.GDRIVE_FOLDER_ID }}
-          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          KAKAO_ACCESS_TOKEN:   ${{ secrets.KAKAO_ACCESS_TOKEN }}
-          KAKAO_REFRESH_TOKEN:  ${{ secrets.KAKAO_REFRESH_TOKEN }}
-          KAKAO_REST_API_KEY:   ${{ secrets.KAKAO_REST_API_KEY }}
-          KAKAO_CLIENT_SECRET:  ${{ secrets.KAKAO_CLIENT_SECRET }}
+          GOOGLE_OAUTH_TOKEN:   ${{ secrets.GOOGLE_OAUTH_TOKEN || vars.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID:     ${{ secrets.GDRIVE_FOLDER_ID || vars.GDRIVE_FOLDER_ID }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || vars.SUPABASE_SERVICE_KEY }}
+          KAKAO_ACCESS_TOKEN:   ${{ secrets.KAKAO_ACCESS_TOKEN || vars.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN:  ${{ secrets.KAKAO_REFRESH_TOKEN || vars.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REST_API_KEY:   ${{ secrets.KAKAO_REST_API_KEY || vars.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET:  ${{ secrets.KAKAO_CLIENT_SECRET || vars.KAKAO_CLIENT_SECRET }}
         run: |
           echo "--- 시크릿 점검 (값은 출력하지 않음) ---"
           if [ -z "$GOOGLE_OAUTH_TOKEN" ]; then
@@ -109,17 +111,62 @@ jobs:
             echo "✅ Kakao refresh 설정됨"
           fi
 
+      - name: 📊 설정 원본 로그
+        env:
+          GOOGLE_OAUTH_TOKEN_SECRET:   ${{ secrets.GOOGLE_OAUTH_TOKEN }}
+          GOOGLE_OAUTH_TOKEN_VAR:      ${{ vars.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY_SECRET:       ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_VAR:          ${{ vars.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID_SECRET:     ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_FOLDER_ID_VAR:        ${{ vars.GDRIVE_FOLDER_ID }}
+          SUPABASE_URL_SECRET:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL_VAR:            ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY_SECRET: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SERVICE_KEY_VAR:    ${{ vars.SUPABASE_SERVICE_KEY }}
+          KAKAO_ACCESS_TOKEN_SECRET:   ${{ secrets.KAKAO_ACCESS_TOKEN }}
+          KAKAO_ACCESS_TOKEN_VAR:      ${{ vars.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN_SECRET:  ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REFRESH_TOKEN_VAR:     ${{ vars.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REST_API_KEY_SECRET:   ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REST_API_KEY_VAR:      ${{ vars.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET_SECRET:  ${{ secrets.KAKAO_CLIENT_SECRET }}
+          KAKAO_CLIENT_SECRET_VAR:     ${{ vars.KAKAO_CLIENT_SECRET }}
+        run: |
+          report() {
+            name="$1"
+            secret_value="$2"
+            var_value="$3"
+            if [ -n "$secret_value" ]; then
+              echo "[source] $name=secret"
+            elif [ -n "$var_value" ]; then
+              echo "[source] $name=vars"
+            else
+              echo "[source] $name=missing"
+            fi
+          }
+
+          echo "--- 설정 원본(값 비공개) ---"
+          report GOOGLE_OAUTH_TOKEN "$GOOGLE_OAUTH_TOKEN_SECRET" "$GOOGLE_OAUTH_TOKEN_VAR"
+          report GEMINI_API_KEY "$GEMINI_API_KEY_SECRET" "$GEMINI_API_KEY_VAR"
+          report GDRIVE_FOLDER_ID "$GDRIVE_FOLDER_ID_SECRET" "$GDRIVE_FOLDER_ID_VAR"
+          report SUPABASE_URL "$SUPABASE_URL_SECRET" "$SUPABASE_URL_VAR"
+          report SUPABASE_SERVICE_KEY "$SUPABASE_SERVICE_KEY_SECRET" "$SUPABASE_SERVICE_KEY_VAR"
+          report KAKAO_ACCESS_TOKEN "$KAKAO_ACCESS_TOKEN_SECRET" "$KAKAO_ACCESS_TOKEN_VAR"
+          report KAKAO_REFRESH_TOKEN "$KAKAO_REFRESH_TOKEN_SECRET" "$KAKAO_REFRESH_TOKEN_VAR"
+          report KAKAO_REST_API_KEY "$KAKAO_REST_API_KEY_SECRET" "$KAKAO_REST_API_KEY_VAR"
+          report KAKAO_CLIENT_SECRET "$KAKAO_CLIENT_SECRET_SECRET" "$KAKAO_CLIENT_SECRET_VAR"
+
       - name: 📰 뉴스 수집 실행
         env:
-          GOOGLE_OAUTH_TOKEN:    ${{ secrets.GOOGLE_OAUTH_TOKEN }}
-          GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
-          GDRIVE_FOLDER_ID:      ${{ secrets.GDRIVE_FOLDER_ID }}
-          GDRIVE_SPREADSHEET_ID: ${{ secrets.GDRIVE_SPREADSHEET_ID }}
-          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_OAUTH_TOKEN:    ${{ secrets.GOOGLE_OAUTH_TOKEN || vars.GOOGLE_OAUTH_TOKEN }}
+          GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY }}
+          GDRIVE_FOLDER_ID:      ${{ secrets.GDRIVE_FOLDER_ID || vars.GDRIVE_FOLDER_ID }}
+          GDRIVE_SPREADSHEET_ID: ${{ secrets.GDRIVE_SPREADSHEET_ID || vars.GDRIVE_SPREADSHEET_ID }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY || vars.SUPABASE_SERVICE_KEY }}
           # 보관 기간 — secret 미설정 시 DB 90일, Sheets 월탭 6개월 보관.
-          SUPABASE_RETENTION_DAYS: ${{ secrets.SUPABASE_RETENTION_DAYS || '90' }}
-          NEWS_RETENTION_MONTHS:    ${{ secrets.NEWS_RETENTION_MONTHS || '6' }}
+          SUPABASE_RETENTION_DAYS: ${{ secrets.SUPABASE_RETENTION_DAYS || vars.SUPABASE_RETENTION_DAYS || '90' }}
+          NEWS_RETENTION_MONTHS:    ${{ secrets.NEWS_RETENTION_MONTHS || vars.NEWS_RETENTION_MONTHS || '6' }}
           PYTHONUNBUFFERED:      "1"
           TZ:                    "Asia/Seoul"
         run: |
@@ -129,12 +176,12 @@ jobs:
 
       - name: 💬 카카오 시황 발송
         env:
-          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
-          KAKAO_ACCESS_TOKEN:    ${{ secrets.KAKAO_ACCESS_TOKEN }}
-          KAKAO_REFRESH_TOKEN:   ${{ secrets.KAKAO_REFRESH_TOKEN }}
-          KAKAO_REST_API_KEY:    ${{ secrets.KAKAO_REST_API_KEY }}
-          KAKAO_CLIENT_SECRET:   ${{ secrets.KAKAO_CLIENT_SECRET }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY || vars.SUPABASE_SERVICE_KEY }}
+          KAKAO_ACCESS_TOKEN:    ${{ secrets.KAKAO_ACCESS_TOKEN || vars.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN:   ${{ secrets.KAKAO_REFRESH_TOKEN || vars.KAKAO_REFRESH_TOKEN }}
+          KAKAO_REST_API_KEY:    ${{ secrets.KAKAO_REST_API_KEY || vars.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET:   ${{ secrets.KAKAO_CLIENT_SECRET || vars.KAKAO_CLIENT_SECRET }}
           PYTHONUNBUFFERED:      "1"
           TZ:                    "Asia/Seoul"
         run: |
@@ -149,6 +196,7 @@ jobs:
       - name: 💓 keepalive — LAST_RUN.txt 갱신
         if: success()
         run: |
+          git pull --ff-only origin "${GITHUB_REF_NAME}"
           mkdir -p .github
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/LAST_RUN.txt
           git config user.name  "github-actions[bot]"
@@ -158,7 +206,12 @@ jobs:
             echo "no changes — skip"
           else
             git commit -m "chore: keepalive $(date -u +%F)"
-            git push
+            git push origin "HEAD:${GITHUB_REF_NAME}" || {
+              echo "::warning::keepalive push rejected; remote branch changed, retrying once"
+              git pull --rebase origin "${GITHUB_REF_NAME}" &&
+              git push origin "HEAD:${GITHUB_REF_NAME}" ||
+              echo "::warning::keepalive push skipped after retry; collection already succeeded"
+            }
           fi
 
       - name: 🚨 실패 시 요약
@@ -167,7 +220,7 @@ jobs:
           echo "::error::뉴스 수집 워크플로 실패"
           echo "이전 단계 로그를 확인하세요."
           echo "체크리스트:"
-          echo "  1. Secrets 가 모두 등록돼 있는지 (GOOGLE_OAUTH_TOKEN, GEMINI_API_KEY)"
+          echo "  1. Secrets 또는 Variables 가 모두 등록돼 있는지 (GOOGLE_OAUTH_TOKEN, GEMINI_API_KEY)"
           echo "  2. OAuth refresh_token 이 만료/취소되지 않았는지"
           echo "  3. Google Drive folder_id 가 유효한지"
           echo "  4. requirements.txt 의존성이 빌드되는지"

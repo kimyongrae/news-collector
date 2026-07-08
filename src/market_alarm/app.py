@@ -155,6 +155,7 @@ class MarketAlarmApp:
     def send_now(self, force: bool = False, provider_override: str | None = None) -> dict[str, Any]:
         settings = self.store.get_settings()
         secrets = self._runtime_secrets()
+        self._log_runtime_secret_sources(secrets)
         articles = self.supabase.fetch_articles(settings, secrets)
         digest = build_digest(articles, settings)
         provider = provider_override or settings.get("provider", "console")
@@ -213,6 +214,21 @@ class MarketAlarmApp:
             secrets["kakao_refresh_token"] = new_refresh_token
             self.store.save_secrets({"kakao_refresh_token": new_refresh_token})
         settings["kakao_refresh_detail"] = result.get("detail", "")
+
+    def _log_runtime_secret_sources(self, secrets: dict[str, str]) -> None:
+        import os
+
+        print("[환경] 발송 런타임 상태")
+        for env_key, secret_key in ENV_SECRET_KEYS.items():
+            env_value = os.environ.get(env_key, "").strip()
+            stored_value = secrets.get(secret_key, "").strip()
+            if env_value:
+                source = "env"
+            elif stored_value:
+                source = "db"
+            else:
+                source = "missing"
+            print(f"[환경] {env_key}={source}")
 
     def _runtime_secrets(self) -> dict[str, str]:
         import os
