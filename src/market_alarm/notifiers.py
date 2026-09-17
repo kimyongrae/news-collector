@@ -471,9 +471,26 @@ def refresh_kakao_access_token(
         }
     except HTTPError as exc:
         body_text = exc.read().decode("utf-8", errors="replace")[:500]
+        try:
+            error_payload = json.loads(body_text)
+        except json.JSONDecodeError:
+            error_payload = {}
+        if error_payload.get("error_code") == "KOE010":
+            detail = (
+                "HTTP 401: KOE010 Bad client credentials · refresh token 만료가 아니라 "
+                "KAKAO_REST_API_KEY 또는 KAKAO_CLIENT_SECRET이 카카오 앱 설정과 일치하지 않습니다. "
+                "GitHub Secret이 Variable보다 우선되므로, 같은 이름의 오래된 Secret이 있는지도 확인하세요."
+            )
+        elif error_payload.get("error") == "invalid_grant":
+            detail = (
+                "HTTP 400: invalid_grant · KAKAO_REFRESH_TOKEN이 만료 또는 폐기되었습니다. "
+                "카카오 OAuth 인가를 다시 진행한 뒤 새 refresh token을 GitHub Secret에 저장하세요."
+            )
+        else:
+            detail = f"HTTP {exc.code}: {body_text}"
         return {
             "ok": False,
-            "detail": f"HTTP {exc.code}: {body_text} · refresh token이 만료/폐기됐으면 카카오 OAuth 인가를 다시 진행해 새 refresh token을 저장해야 합니다.",
+            "detail": detail,
         }
     except Exception as exc:
         return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"}

@@ -213,7 +213,30 @@ class MarketAlarmApp:
         if new_refresh_token:
             secrets["kakao_refresh_token"] = new_refresh_token
             self.store.save_secrets({"kakao_refresh_token": new_refresh_token})
+            self._publish_refreshed_kakao_token(new_refresh_token)
         settings["kakao_refresh_detail"] = result.get("detail", "")
+
+    @staticmethod
+    def _publish_refreshed_kakao_token(refresh_token: str) -> None:
+        """Expose a rotated token to GitHub Actions without writing it to logs.
+
+        GitHub-hosted runners discard the local SQLite database after every run.
+        A following workflow step can use this output to update the repository
+        secret when the optional KAKAO_SECRETS_PAT is configured.
+        """
+        import os
+
+        output_path = os.environ.get("GITHUB_OUTPUT", "")
+        if not output_path or "\n" in refresh_token or "\r" in refresh_token:
+            return
+        print(f"::add-mask::{refresh_token}")
+        try:
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write(f"kakao_refresh_token={refresh_token}\n")
+        except OSError as exc:
+            # Sending already succeeded. Do not turn a successful delivery into
+            # a failure merely because the optional persistence hand-off failed.
+            print(f"[환경] 갱신된 Kakao refresh token 전달 실패: {type(exc).__name__}")
 
     def _log_runtime_secret_sources(self, secrets: dict[str, str]) -> None:
         import os

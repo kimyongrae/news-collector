@@ -145,6 +145,14 @@ schedule:
 
 정시 정각은 전 세계 workflow 가 동시에 몰리는 시각이라 schedule 이 **누락·지연**되는 경우가 많습니다. 17분으로 옮기면 부하가 완화돼 더 안정적으로 실행됩니다. 그래도 GitHub Actions schedule 은 보장된 정각 실행이 아니므로, 워크플로에는 실제 KST 실행 시각을 로그로 남깁니다. 지연되더라도 하루 1회 수집과 카카오 발송은 진행합니다.
 
+### 카카오 OAuth 자동 갱신 (GitHub Actions)
+
+Actions는 매 발송 전에 `KAKAO_REFRESH_TOKEN`으로 access token을 새로 발급합니다. 따라서 `KAKAO_ACCESS_TOKEN`은 등록하지 않아도 됩니다. 필요한 값은 `KAKAO_REFRESH_TOKEN`, `KAKAO_REST_API_KEY`와 (카카오 앱에서 Client Secret 사용이 켜진 경우) `KAKAO_CLIENT_SECRET`입니다.
+
+카카오가 refresh 응답으로 새 refresh token을 돌려줄 수 있습니다. 이를 다음 Actions 실행에도 유지하려면 GitHub Secret `KAKAO_SECRETS_PAT`에 해당 저장소의 Actions secrets 쓰기 권한이 있는 fine-grained PAT를 등록하세요. 워크플로가 새 `KAKAO_REFRESH_TOKEN`을 자동으로 덮어씁니다. 이 PAT가 없더라도 해당 실행의 발송은 정상 진행됩니다.
+
+`HTTP 401 KOE010`은 refresh token 만료가 아니라 앱 인증 정보 불일치입니다. 카카오 Developers의 **REST API 키**, Client Secret 사용 여부/값을 확인하고, 같은 이름의 GitHub **Secret**과 **Variable**을 동시에 두지 마세요. 현재 워크플로는 Secret을 우선 사용하므로 오래된 Secret이 있으면 최신 Variable을 덮어씁니다.
+
 ### Actions 가 안 돌 때 체크리스트
 
 1. **저장소 activity**: 60일 이상 커밋이 없으면 GitHub 이 자동으로 schedule 을 비활성화합니다. 수동으로 한 번 실행하면 다시 활성화됩니다.
